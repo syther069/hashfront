@@ -120,6 +120,9 @@ Durable facts and decisions for Hashfront. Update this file whenever something i
   - **Gas:** the upload used 9.95M gas (about 0.0002 OKB). The maintainers got 0.00002 OKB each and the reporter 0.00005; the deployer had about 0.00219 OKB left.
   - **On chain:** `hashfront verify` says all 3 files match byte for byte.
   - **In a browser:** https://4-2-409.tapekit.org/ redirects to `releases/v1/index.html` and HashSwap renders ("Release v1").
+- **Hosting (N2/N3, Nov 20), on Vercel account syther069 (Hobby), deployed with the Vercel CLI from `C:\OKX hackathon\deploy\<project>` (outside the repo):**
+  - **Normal site:** https://hashswap-demo.vercel.app/ serves exactly the v1 bytes. A watcher `--once` against mainnet says MATCH.
+  - **Status page:** https://hashfront-status.vercel.app/ is built with `VITE_GATE=0xAF96…80F6 VITE_NETWORK=xlayer`. It reads v1, 3/3 approvals and the 32-row table of circuit #4 from mainnet. The badge says "Protected by Hashfront · v1" and ignores a `?gate=` override.
 - **The DeWEB gateway can't be checked with plain HTTP:** tapekit.org returns the same 2,817-byte Service Worker bootstrap page for every path, and the Service Worker reads the files from chain. Check with `hashfront verify` or a real browser.
 
 ## Open unknowns (tracked in IMPLEMENTATION_PLAN.md)
