@@ -123,6 +123,11 @@ Durable facts and decisions for Hashfront. Update this file whenever something i
 - **Hosting (N2/N3, Nov 20), on Vercel account syther069 (Hobby), deployed with the Vercel CLI from `C:\OKX hackathon\deploy\<project>` (outside the repo):**
   - **Normal site:** https://hashswap-demo.vercel.app/ serves exactly the v1 bytes. A watcher `--once` against mainnet says MATCH.
   - **Status page:** https://hashfront-status.vercel.app/ is built with `VITE_GATE=0xAF96…80F6 VITE_NETWORK=xlayer`. It reads v1, 3/3 approvals and the 32-row table of circuit #4 from mainnet. The badge says "Protected by Hashfront · v1" and ignores a `?gate=` override.
+- **Hijack rehearsal N5 (Nov 20), passed on mainnet:**
+  - The first MISMATCH came 21 s after the hijack deploy, and the alert went out at 51 s: Telegram plus TapeSend tx `0xc9d874f5…`.
+  - There was no repeat during the incident. The all-clear came after 3 MATCH checks: Telegram plus tx `0xe40bbd20…`.
+  - Both alerts together cost the reporter 0.0000092 OKB.
+  - Full timeline: `docs/evidence-hijack-rehearsal.md`.
 - **The DeWEB gateway can't be checked with plain HTTP:** tapekit.org returns the same 2,817-byte Service Worker bootstrap page for every path, and the Service Worker reads the files from chain. Check with `hashfront verify` or a real browser.
 
 ## Open unknowns (tracked in IMPLEMENTATION_PLAN.md)
