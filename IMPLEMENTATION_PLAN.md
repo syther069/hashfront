@@ -482,6 +482,30 @@ forge test
 | **P8** | **24/7 watcher:** turn on the cron template in a private repo with the reporter key as a secret, or keep the PC watcher for the demo | A decision; if cron, green runs every 5 min | Decision: you |
 | **P9** | **TapeSend client view (N7):** show an alert in a client the judges can open, or document the on-chain read (`inboxCount` and payload) | One verifiable view, documented | Claude (after P1–P4) |
 
+## Phase 8: OKX Onchain OS API keys (plan only, added Nov 20)
+
+**Scope:** the user has API keys from the OKX developer portal. This is what the docs show (read Nov 20) and how each product could make Hashfront stronger. Auth is `OK-ACCESS-KEY` / `-SIGN` / `-PASSPHRASE` / `-TIMESTAMP` headers, so a secret is involved.
+
+**Key rule:** keys live only where Hashfront already keeps secrets: the watcher and CLI process, read from env or a hidden prompt, or a GitHub secret in CI. Never in `apps/web` or the demo bundle (anything built with Vite is public), never in a file in the repo, never pasted in chat.
+
+| # | OKX API (X Layer 196) | Use in Hashfront | Value | Verified in docs |
+|---|---|---|---|---|
+| **A1** | **Wallet / Balance API** | The watcher checks the reporter and deployer balances and sends a team notice ("reporter gas low") before alerts could fail | High: an alert must never fail silently for lack of gas | Product ✓, endpoint path to confirm |
+| **A2** | **Onchain Gateway** (simulate + broadcast, multi-broadcast) | Alert transactions are simulated and broadcast through OKX's gateway as well as the public RPC, so alerts get through when `rpc.xlayer.tech` is slow or rate-limited during an incident | High: alert delivery under load | Product ✓, X Layer support and paths to confirm |
+| **A3** | **Market API** `POST /api/v6/dex/market/price` | `hashfront init` and `status` show costs in USD (fees, gas); the README cost table gets live prices | Medium: clearer for teams | ✓ endpoint and auth |
+| **A4** | **Security scan** (behind `onchainos security dapp-scan`) | Call the scan over REST with the key, so the phishing signal also works in GitHub Actions without the onchainos CLI or a login | Medium | ❌ no REST page found yet; ask OKX or read the CLI |
+| **A5** | **DEX Swap API** (`/quote`, `/approve-transaction`, `/swap`) | Make HashSwap a real swap (quotes from the aggregator) for a more convincing demo. It needs a small server or Vercel function so the key stays off the client | Low for the core product, nice for the video | Flow ✓, paths to confirm |
+| **A6** | **Developer portal analytics** | Show Builder Code attribution (transactions and activity from `15ld85k6825od6yr`) in the submission | Medium, no code | Portal ✓ |
+
+**Order if we do it:**
+1. A1 (balance warning)
+2. A2 (gateway broadcast fallback)
+3. A3 (USD prices)
+4. A4 once the REST endpoint is confirmed
+5. A5 only if there is time after the video
+
+**Prerequisite:** for each item, read its API reference page for the exact path, method and signing (HMAC over `timestamp + method + path + body` is the usual OKX scheme; confirm it in the docs). Then add one unit test with a recorded response, and one live call with the key from env.
+
 ## Phase 5: end-to-end rehearsal and submission
 
 ### Step 13: Hijack rehearsal on our own domain [M] 💸

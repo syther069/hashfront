@@ -13,3 +13,4 @@ contracts/deployments/*.fork.json
 contracts/deployments/*.dryrun.json
 hashfront.json
 .watcher/
+apps/*/dist-v*/
