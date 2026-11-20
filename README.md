@@ -12,7 +12,7 @@ Every frontend release is approved by maintainers through a **TapeOut policy cir
 |---|---|
 | **Status page** | https://hashfront-status.vercel.app: live release, open alerts, and the full release policy, all read from chain in your browser |
 | **Verified copy** (pin this) | https://4-2-409.tapekit.org/: HashSwap v1 served from chain by DeWEB; no server can change it |
-| **Protected demo site** | https://hashswap-demo.vercel.app: "HashSwap", the normal website the watcher checks |
+| **Protected demo site** | https://hashswap-demo.vercel.app: "HashSwap", the normal website the watcher checks (release v2 live) |
 | **ReleaseGate** | [`0xAF96CA14DB35420BF46b6Ab8feB513306B7D80F6`](https://www.oklink.com/xlayer/address/0xAF96CA14DB35420BF46b6Ab8feB513306B7D80F6) |
 | **Policy circuit** | #4 on TapeOut processor #409 (`0x39E4…84D0`), held by the gate |
 | **Site container** | `0x5D96417d287f6F10979b63b80504926DE4CE92bA`, name `4.2.409.tape` |
@@ -41,6 +41,8 @@ We "hijacked" our own demo site. The copy looked the same, but the Swap approval
 | 09:52:53 | all-clear after 3 clean checks: Telegram + TapeSend [`0xe40bbd20…`](https://www.oklink.com/xlayer/tx/0xe40bbd201b7757eee89080e30a53a670be6cbedb2d6e32c5bbfe086ad5939cb4) |
 
 Both alerts together cost 0.0000092 OKB.
+
+**With a real wallet** ([`docs/evidence-wallet-pass.md`](docs/evidence-wallet-pass.md)): a maintainer approved release v2 from OKX Wallet on the approve page. That transaction is [`0x1024923a…`](https://www.oklink.com/xlayer/tx/0x1024923ab8854aa45dcc44e10a7c56c2a5b1de77f7c868bacf9e9b576179df1b) and carries Builder Code `15ld85k6825od6yr`. A user then sent a swap approval from the verified DeWEB copy: [`0xf8bbeef5…`](https://www.oklink.com/xlayer/tx/0xf8bbeef560e447e0806ebec63db293631078cb0862c930e80ef630f5da367d97).
 
 ## How it works
 
