@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "description": "TAP-02 netlist builder, reference evaluator and the Hashfront release-policy circuit",
+  "license": "MIT",
   "scripts": {
     "test": "node --test \"test/**/*.test.ts\"",
     "build": "node scripts/build.ts"
@@ -12,5 +13,7 @@
     "./tap02": "./src/tap02.ts",
     "./policy": "./src/policy.ts"
   },
-  "engines": { "node": ">=22.18" }
+  "engines": {
+    "node": ">=22.18"
+  }
 }

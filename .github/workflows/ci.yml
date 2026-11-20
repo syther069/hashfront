@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typescript:
+    name: TypeScript (typecheck, unit tests, builds)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests (circuits, CLI, watcher, web)
+        run: npm test
+      - name: Build the policy circuit
+        run: npm run build -w circuits
+      - name: Build the demo dApp and the web app
+        run: |
+          npm run build -w apps/demo-dapp
+          npm run build -w apps/web
+      - name: Pre-flight both builds for DeWEB
+        run: |
+          node packages/cli/src/main.ts preflight apps/demo-dapp/dist
+          node packages/cli/src/main.ts preflight apps/web/dist
+
+  contracts:
+    name: Contracts (forge build and tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.7.1
+      - name: Build
+        working-directory: contracts
+        run: forge build
+      - name: Unit, fuzz and manifest-compatibility tests
+        working-directory: contracts
+        # fork tests read X Layer mainnet; they run locally (README) so CI never depends on a public RPC
+        run: forge test --no-match-path "test/fork/*"

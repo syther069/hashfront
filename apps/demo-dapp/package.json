@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "description": "HashSwap: a minimal demo protocol frontend that Hashfront releases, watches and protects",
+  "license": "MIT",
   "scripts": {
     "dev": "vite",
     "build": "tsc -p tsconfig.json && vite build",

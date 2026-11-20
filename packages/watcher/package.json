@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "description": "Compares a protocol's normal website with its live onchain Hashfront release and reports hijacks",
+  "license": "MIT",
   "bin": {
     "hashfront-watch": "./src/main.ts"
   },

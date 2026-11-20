@@ -1,92 +1,137 @@
 # Hashfront
 
-When your DeFi domain gets hijacked, your users already know where the real app is.
+[![CI](https://github.com/syther069/hashfront/actions/workflows/ci.yml/badge.svg)](https://github.com/syther069/hashfront/actions/workflows/ci.yml) · MIT · Built for X Layer TapeOut Accelerate (Build X Series)
 
-Hashfront gates every frontend release through an onchain **TapeOut** policy circuit on **X Layer**, publishes it to **DeWEB** (served by TapeKit), watches your normal domain around the clock, and alerts users over **TapeSend** and Telegram the moment the two differ.
+**When a DeFi frontend gets hijacked, Hashfront catches it in under a minute, warns users on Telegram and on chain, and keeps a copy of the approved app that the attacker cannot touch.**
 
-Built for the X Layer TapeOut Accelerate hackathon (Build X Series).
+Every frontend release is approved by maintainers through a **TapeOut policy circuit on X Layer**. It is stored byte for byte on **DeWEB**, and a watcher compares the normal website with that onchain release around the clock. When the two differ, alerts go out over **TapeSend** (on chain) and Telegram, and users open the verified copy instead.
 
-## Repo layout
-| Path | What | Status |
-|---|---|---|
-| `circuits/` | TAP-02 netlist builder, reference evaluator, release-policy circuit (22 NAND gates) | ✅ tests pass on all 32 inputs; evaluator matches 3 live mainnet circuits |
-| `contracts/` | `ReleaseGate.sol`, TapeOut interfaces, mocks, unit/fuzz tests, X Layer fork tests | ✅ 33 unit/fuzz/compat tests + 3 X Layer fork tests pass |
-| `packages/cli/` | `hashfront` CLI (viem + X Layer Builder Codes): manifest, propose, approve, cancel, upload, verify, seal, activate, status, wait-active | ✅ 10 unit tests, anvil end-to-end suite, real-registry fork end-to-end |
-| `apps/watcher/` | domain hash, DNS and certificate watcher → TapeSend + Telegram | ⏳ days 8–10 |
-| `apps/web/` | approve page and status page (Vite + React + wagmi), published to DeWEB | ⏳ days 11–12 |
+## Live on X Layer mainnet
 
-## Tech stack (from the official docs)
-| Layer | Choice | Source |
-|---|---|---|
-| Chain | X Layer mainnet `196` (testnet `1952`), OKB gas | X Layer docs → Network information |
-| RPC | `https://rpc.xlayer.tech`, `https://xlayerrpc.okx.com` (+ `xlayer.drpc.org`, `196.rpc.thirdweb.com` from TapeKit's list) | X Layer docs, TapeKit `kernel/src/config.js` |
-| Contracts | **Foundry** (forge/cast/anvil), Solidity 0.8.28 | X Layer docs → Deploy with Foundry; TapeKit's own contracts use Foundry |
-| Verification | `forge verify-contract --verifier oklink` | X Layer docs → Verify with Foundry |
-| Client / frontend | **viem ≥ 2.45** + **wagmi** + **ox** | X Layer docs → Builder Codes integration ("Viem recommended") |
-| Attribution | **X Layer Builder Codes** (ERC-8021 `dataSuffix`, registry `0xd6c426f9c077358735622ae5a83468dc0510823b`) | X Layer docs → Builder Codes |
-| DeWEB reads and verification | **`@tapekit/kernel`** (zero-dependency JS, Node ≥ 18) | TapeKit repo |
-| Messaging | **TapeSend** through the DeWeb Hub, sent onchain by `ReleaseGate.alert()` (fixed text, no links), plus the **Telegram Bot API** | TAP-10 §6; TapeKit repo `send/module` (protocol reference) |
-| Circuits | TAP-02 netlists; design and preview on the **TapeOut Canvas** (tapeout.net) | TAP-02, tapeout.net |
-| Security and OnchainOS | **OnchainOS CLI and skills** v4.6.11 (`security dapp-scan` for phishing domains, `gateway simulate`, `tx-scan`). The watcher uses `dapp-scan` as a signal | OnchainOS docs → Skills/MCP; github.com/okx/onchainos-skills |
-| Runtime | Node 22.18+ (native TypeScript), npm | TapeKit uses npm |
+| | |
+|---|---|
+| **Status page** | https://hashfront-status.vercel.app: live release, open alerts, and the full release policy, all read from chain in your browser |
+| **Verified copy** (pin this) | https://4-2-409.tapekit.org/: HashSwap v1 served from chain by DeWEB; no server can change it |
+| **Protected demo site** | https://hashswap-demo.vercel.app: "HashSwap", the normal website the watcher checks |
+| **ReleaseGate** | [`0xAF96CA14DB35420BF46b6Ab8feB513306B7D80F6`](https://www.oklink.com/xlayer/address/0xAF96CA14DB35420BF46b6Ab8feB513306B7D80F6) |
+| **Policy circuit** | #4 on TapeOut processor #409 (`0x39E4…84D0`), held by the gate |
+| **Site container** | `0x5D96417d287f6F10979b63b80504926DE4CE92bA`, name `4.2.409.tape` |
 
-## TapeOut / X Layer addresses used (chain 196)
-| Contract | Address | Checked on chain (Nov 18, 2026) |
-|---|---|---|
-| Processor factory (UUPS) | `0x1f09DAeFA827f02CBb40967cc91b259763760761` | 430 processors, not sealed, impl `0x336e…ae2a` ⚠️ differs from TapeKit's pinned `0xb41c…293d` |
-| Container opener | `0x536adD8F30f03b69f6fbF29d425A816A0dC50106` | `accountOf` / `isOpened` work |
-| SiteRegistry (UUPS) | `0xd6EFb7adCc9c83dC4924Ad56f6a8E4e969b9ADB6` | impl `0xa85c…a45f` = TapeKit pin ✅ |
-| DomainBinding (UUPS) | `0x68809Fd2fb343aA57D0aeB7f33Defe477c9666f9` | impl `0x5ebf…47df` = pin ✅, `monthlyFee()` = 0 |
-| DeWEB Hub (TapeSend) | `0xe61A9C7213a6Aa616C246a2B569e555B417b25ee` | code present |
-| Example processor | `0x839bdD6fa7A66416A609A735e11DE5411B98574e` ("OnlyTestXLayer") | `TAPEOUT_FEE` = 0.0013 OKB; `eval` of circuit #1 = XOR ✅ |
+## Why
 
-## Run
+Domain hijacks are one of the cheapest ways to drain DeFi users. The attacker doesn't touch the contracts. They take over the domain at the registrar or DNS host, then serve a copy of the app that looks identical but asks the wallet for an unlimited approval to their address. In the Oct 31, 2026 Name.com hijacks, 12 sites were taken over at once through their registrar. Users can't see the difference, and teams usually find out from their users.
+
+Hashfront closes the three gaps:
+
+1. **Know:** a watcher compares every file the normal site serves with the release approved on chain. It also watches DNS, the TLS certificate and the OnchainOS phishing scan, so a registrar hijack is caught even if the attacker shows the watcher the real page.
+2. **Warn:** one alert per incident on Telegram and as an onchain TapeSend message. The text is fixed in the contract and has no links, so a stolen alert key can't send anyone to a phishing page. The status page and the embeddable badge turn red.
+3. **Fall back:** every approved release lives on DeWEB under the protocol's own `.tape` name. During a hijack, users open the pinned verified link and get the exact approved bytes from chain.
+
+## Proof: hijack rehearsal on mainnet (Nov 20, 2026)
+
+We "hijacked" our own demo site. The copy looked the same, but the Swap approval went to `0xBAd0…0Bad`. Full timeline: [`docs/evidence-hijack-rehearsal.md`](docs/evidence-hijack-rehearsal.md).
+
+| UTC | |
+|---|---|
+| 09:49:32 | hijacked build deployed to `hashswap-demo.vercel.app` |
+| 09:49:53 | watcher: **MISMATCH** (21 s); `index.html` changed, approved bundle missing |
+| 09:50:23 | alert confirmed on a second check: Telegram + TapeSend [`0xc9d874f5…`](https://www.oklink.com/xlayer/tx/0xc9d874f5aa9fbf15640f2ff02987172fdc776782e5f9c3b3f6b326286296740b) |
+| 09:50:40 | status page: "Open alert: website mismatch"; badge: ALERT; verified copy still served the real router `0xA1DA…` |
+| 09:51:30 | real build restored, no duplicate alerts in between |
+| 09:52:53 | all-clear after 3 clean checks: Telegram + TapeSend [`0xe40bbd20…`](https://www.oklink.com/xlayer/tx/0xe40bbd201b7757eee89080e30a53a670be6cbedb2d6e32c5bbfe086ad5939cb4) |
+
+Both alerts together cost 0.0000092 OKB.
+
+## How it works
+
+```mermaid
+flowchart LR
+  subgraph Release["Release (once per version)"]
+    CI["CI: hashfront manifest + propose"] --> Gate
+    M["2 of 3 maintainers approve<br/>(approve page or CLI)"] --> Gate
+    Gate["ReleaseGate (X Layer)"] -->|"policy bits"| Circuit["TapeOut policy circuit<br/>22 NAND gates"]
+    Circuit -->|"allow"| Gate
+    Gate -->|"verified chunks"| DeWEB["DeWEB SiteRegistry<br/>https://4-2-409.tapekit.org"]
+  end
+  subgraph Watch["Watch (every 30 s)"]
+    Site["normal website"] --> Watcher["hashfront-watch"]
+    DeWEB -.->|"approved hashes"| Watcher
+    DNS["DNS / TLS / OnchainOS dapp-scan"] --> Watcher
+    Watcher -->|"MISMATCH x2"| Alert["ReleaseGate.alert(): TapeSend + Telegram"]
+    Alert --> Status["status page + badge: ALERT"]
+  end
+```
+
+- **Release policy, enforced by a circuit on X Layer.** `allow = NOT frozen AND ((timelock passed AND 2 of 3 approved) OR 3 of 3 approved)`. The gate passes 5 input bits to the TapeOut processor and only activates a release if the circuit returns 1. The status page reads the stored netlist, evaluates all 32 rows in the browser, and cross-checks them against the gate.
+- **Every byte is approved.** The manifest has one Merkle leaf per 24 KB chunk, binding path, content type, file hash, index and chunk hash. The gate recomputes `sha256(chunk)` on chain, so a leaked CI key can't upload anything the maintainers didn't approve.
+- **The gate owns the site.** The policy circuit's NFT, and with it the DeWEB container, is held by `ReleaseGate`. Only an approved, activated release can change what the verified link serves.
+- **Alerts come from the protocol's own identity.** `alert()` sends a TapeSend message from the site container. It also records `lastAlert`, so pages can show an open alert without scanning logs.
+
+## Tech used
+
+| | How Hashfront uses it |
+|---|---|
+| **X Layer** (chain 196) | all contracts and transactions; OKB gas (about 0.02 gwei); Builder Codes (ERC-8021) supported on every CLI and web transaction |
+| **TapeOut** | the release policy is a taped-out NAND circuit (`circuits/`, TAP-02); the gate evaluates it for every activation |
+| **DeWEB / TapeKit** | releases are stored in the SiteRegistry under the circuit's container; the `.tape` name serves the verified copy |
+| **TapeSend** | onchain alerts through the DeWeb Hub, sent by the gate as the site's container |
+| **OnchainOS** | `security dapp-scan` is one of the watcher's signals (phishing blacklist) |
+| **Stack** | Solidity 0.8.28 + Foundry · TypeScript on Node 24 (native type stripping) · viem, ox · React 19, wagmi, Vite · Playwright |
+
+## Repository
+
+| Path | What |
+|---|---|
+| [`contracts/`](contracts) | `ReleaseGate.sol` (approve → upload → seal → timelock → activate, freeze, cancel, key rotation, migrate, alerts) and the deploy scripts |
+| [`circuits/`](circuits) | TAP-02 netlist builder and evaluator, and the policy circuit with its [truth table](circuits/out/truth-table.md) |
+| [`packages/cli/`](packages/cli) | `hashfront`: `init` (one-command onboarding), `preflight`, the release flow, `status`, `verify`; signs with Foundry keystores; [GitHub Action template](packages/cli/templates/hashfront-release.yml) |
+| [`packages/watcher/`](packages/watcher) | `hashfront-watch`: content comparison, DNS, certificate and OnchainOS signals, incident state machine, Telegram and TapeSend alerts |
+| [`apps/web/`](apps/web) | status page, maintainer approve page and the embeddable badge |
+| [`apps/demo-dapp/`](apps/demo-dapp) | HashSwap, the demo protocol frontend (plus the hijack copy used in the rehearsal) |
+| [`docs/`](docs) | deploy runbook, rehearsal evidence, demo script |
+
+## Run it yourself
+
 ```bash
 npm install
-npm run typecheck                              # strict TypeScript across the workspace
-npm test                                       # circuits + CLI unit tests
-npm run build -w circuits                      # writes circuits/out/policy.json + truth-table.md
-cd contracts && forge test                     # unit, fuzz and CLI-manifest compatibility tests
-forge test --match-path "test/fork/*" -vv      # read-only fork of X Layer mainnet
-cd ../packages/cli && npm run test:e2e         # anvil + ReleaseGate + the real CLI binary
-npm run test:fork                              # same CLI flow against the REAL X Layer SiteRegistry (local fork)
+npm run typecheck && npm test                  # TypeScript and unit tests (circuits, CLI, watcher, web)
+cd contracts && forge test                     # unit, fuzz and compatibility tests, plus read-only X Layer fork tests
 ```
 
-## CLI
-Approve first, upload second. A release only goes live when the onchain policy circuit says yes.
+Check the live deployment, with no keys needed:
+
 ```bash
-export HASHFRONT_GATE=0x...                     # ReleaseGate address
-export HASHFRONT_BUILDER_CODE=...               # optional X Layer Builder Code (ERC-8021)
-
-hashfront manifest dist --out manifest.json                 # hash the build: one Merkle leaf per 24 KB chunk
-hashfront propose  --manifest manifest.json                 # uploader key; prints the release id
-hashfront approve  --id 3 --manifest manifest.json          # each maintainer, after reviewing the build
-hashfront upload   --id 3 --manifest manifest.json dist     # resumable; one transaction per chunk
-hashfront verify   --id 3 --manifest manifest.json          # re-reads and re-hashes the stored bytes
-hashfront seal     --id 3 --manifest manifest.json          # verifies, then freezes (contract checks every chunk is in)
-hashfront activate --id 3                                   # anyone, once the circuit allows it
-hashfront wait-active --id 3 && deploy-to-your-host         # deploy the normal site only after activation
-hashfront cancel   --id 3                                   # any maintainer: kill a bad release for good
+node packages/cli/src/main.ts status --gate 0xAF96CA14DB35420BF46b6Ab8feB513306B7D80F6
+node packages/cli/src/main.ts verify --id 1 --manifest manifests/v1.json --gate 0xAF96CA14DB35420BF46b6Ab8feB513306B7D80F6
+node packages/watcher/src/main.ts --site https://hashswap-demo.vercel.app/ --gate 0xAF96CA14DB35420BF46b6Ab8feB513306B7D80F6 --manifests manifests --once
 ```
-Write commands read the signer from `HASHFRONT_PRIVATE_KEY`. In CI, that's the uploader key, stored as a secret. Maintainers approve from their own wallets.
 
-## Release policy (5 inputs → 1 output)
-`allow = NOT frozen AND ((timelockPassed AND twoOf(a1,a2,a3)) OR (a1 AND a2 AND a3))`
-Full truth table: [`circuits/out/truth-table.md`](circuits/out/truth-table.md).
+Protect your own frontend (the [CLI README](packages/cli/README.md) has the details):
 
-## Security model (MVP)
-- **ReleaseGate holds the site's circuit NFT and is the only editor.** Verified on a fork of X Layer mainnet: a contract holder can write files and set the fallback on the real SiteRegistry, and the previous EOA loses edit rights (`test/fork/ContractHolder.t.sol`).
-- **Every byte is approved.** The manifest has one Merkle leaf per 24 KB chunk, binding `(path, contentType, fileSha256, index, sha256(chunk))`. The gate recomputes `sha256(chunk)` on chain, so a leaked CI key can't upload a single byte, path or content type the maintainers didn't approve, or move a chunk to another index.
-- **Approve first, upload second.** Uploads need 2 approvals of `(root, totalChunks)`. `seal` reverts until every chunk is on chain, and sealing freezes the release's files and starts the timelock.
-- **Only newer releases go live,** so there's no rollback replay. A rollback is a new proposal.
-- **The root `index.html` is generated on chain** with absolute paths, so nothing can be injected into it.
-- **Incident controls.** Any maintainer can freeze activations instantly or permanently cancel a release that isn't live. Unfreezing needs all three.
-- **Lost keys.** Two maintainers can replace the third. Rotation advances an epoch that voids earlier approvals and pending votes. Two maintainers can also replace the uploader key.
-- **Escape hatch.** All three maintainers can migrate the site NFT to a new holder, such as a new gate version. The old gate then stops.
-- **Verification.** `hashfront verify` re-reads stored bytes with `readRange` and re-hashes them, because the registry stores the declared SHA-256 without checking it.
+```bash
+hashfront preflight dist                        # relative paths, index.html, no server code
+hashfront init --site https://app.example.org --maintainers 0xM1,0xM2,0xM3 \
+  --uploader 0xCI --reporter 0xWATCHER --timelock 24h --build dist --account deployer --broadcast
+```
 
-### Known limits
-- **Staged files are public before activation.** Files under `releases/vN/` can be opened by direct URL before the timelock ends. They are approved bytes, but not yet the live release.
-- **Setup order.** The EOA holder must open the container and `bind` the `.tape` name (currently free on X Layer) **before** transferring the NFT to the gate. The gate has no pass-through for those calls.
-- **The policy runs on a TapeOut processor.** Taping out needs the processor's transistors and fee; the transistor acquisition flow still has to be confirmed before mainnet.
-- **Trust assumption:** TapeOut contracts are upgradeable (3/5 multisig), the factory has been upgraded since TapeKit's pin, and v2.0 isn't deployed yet.
+`init` simulates unless you pass `--broadcast`. On mainnet it also asks you to type `DEPLOY`, shows the live fees first (about 0.082 OKB for a new circuit and its container), and never deploys twice for the same site.
+
+## Tests
+
+| Suite | Count | Covers |
+|---|---|---|
+| `forge test` | 48 | gate lifecycle, policy, fuzzing, manifest compatibility with the CLI, alerts, plus X Layer fork tests (contract holder on the real SiteRegistry, real TapeSend hub) |
+| unit (`npm test`) | 86 | circuit truth table, Merkle and manifest, preflight, keystore, init input, template guards; watcher compare, CDN and adversarial cases, DNS/cert/scan signals, incident state machine; web link rules |
+| end-to-end | 14 | CLI on anvil (5), the CLI against the real SiteRegistry on a fork, `init` + Action command sequence on a fork, demo release on a fork, watcher MATCH→MISMATCH and one-alert-per-incident with the forked TapeSend hub, Playwright on the status, approve and badge pages |
+
+## Security model and limits
+
+- **What a stolen key can do:**
+  - **Uploader (CI):** it can only stage bytes the maintainers approved.
+  - **Reporter (watcher):** it can raise a false alarm or a false all-clear, never send users anywhere.
+  - **One maintainer:** it can freeze or cancel, but not ship a release alone.
+- **Rotation:** two maintainers can replace the third, the uploader or the reporter. All three can migrate the site to a new gate.
+- **What the watcher can't do:** it sees one vantage point and needs the release manifests. "No open alert" means no alert was reported; it is not a live check, and a stopped watcher looks the same. A Cloudflare-modified page is reported as `CDN_MODIFIED` to the team and never shown as safe.
+- **Trust assumptions:** TapeOut and DeWEB contracts are upgradeable by their operators, and the verified link depends on the tapekit.org gateway (or any TapeKit-compatible client) to render.
+
+Built by [syther069](https://github.com/syther069).

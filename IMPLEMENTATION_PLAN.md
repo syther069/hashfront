@@ -466,6 +466,22 @@ forge test
 
 **Budget:** the deployer has about 0.00219 OKB. A v2 release costs about 0.0002 and an alert about 0.000005, so N5 and N6 fit.
 
+## Phase 7: judge-ready (added Nov 20, after the N5 rehearsal passed)
+
+**Goal:** a judge who opens the repo, the video or a link understands the product in 2 minutes and can check every claim. Ordered by impact. A task marked 💸 needs a "go" for mainnet transactions.
+
+| Task | What | Done when | Owner |
+|---|---|---|---|
+| **P1** | **README rewrite:** what it is, the problem (Oct 31 Name.com hijacks), live links, mainnet addresses, how TapeOut/DeWEB/TapeSend/X Layer/OnchainOS are used, an architecture diagram, the rehearsal evidence with OKLink links, "run it yourself", tests, security model and known limits | A stranger can follow it to verify v1 and the rehearsal on chain | Claude |
+| **P2** | **Demo video (3 min):** script with exact steps and timings (problem → setup → release → hijack → alert → safe copy → all-clear) | Script in `docs/demo-script.md`; video recorded | Script: Claude; recording: you |
+| **P3** | **GitHub CI:** typecheck, all unit tests, `forge test` (without fork tests), and the demo and web builds on every push, with a badge in the README | Green run on `main` | Claude |
+| **P4** | **LICENSE:** MIT, © syther069 | File in the repo root | Claude (you can pick another license) |
+| **P5** | **X Layer Builder Code:** register one; set `HASHFRONT_BUILDER_CODE` / `VITE_BUILDER_CODE`; future transactions carry ERC-8021 attribution | One mainnet transaction with the suffix, visible on OKLink | Register: you; wiring: Claude |
+| **P6** | **OKX Wallet pass (N6)** 💸: v2 release approved from the approve page with a real wallet, plus the HashSwap swap on the DeWEB copy | Transaction links and screenshots in `docs/` | You (wallet) + Claude |
+| **P7** | **User research (Track B):** interview notes or replies | `docs/interviews.md` log filled; a README section | You |
+| **P8** | **24/7 watcher:** turn on the cron template in a private repo with the reporter key as a secret, or keep the PC watcher for the demo | A decision; if cron, green runs every 5 min | Decision: you |
+| **P9** | **TapeSend client view (N7):** show an alert in a client the judges can open, or document the on-chain read (`inboxCount` and payload) | One verifiable view, documented | Claude (after P1–P4) |
+
 ## Phase 5: end-to-end rehearsal and submission
 
 ### Step 13: Hijack rehearsal on our own domain [M] 💸
