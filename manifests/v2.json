@@ -1,0 +1,72 @@
+{
+  "version": 2,
+  "root": "0x352185e470f5e23d9e536807e175e7128130e1a174b60cb8d457b68c16c73d58",
+  "totalChunks": 4,
+  "totalBytes": 39415,
+  "files": [
+    {
+      "path": "assets/index-CuJ_pYa4.css",
+      "size": 1596,
+      "sha256": "0xf64399e50bf6569e0fb5ddaaa294a6504a957332cd96dbf10920fe2306f3186f",
+      "contentType": "text/css; charset=utf-8",
+      "chunks": [
+        {
+          "index": 0,
+          "size": 1596,
+          "sha256": "0xf64399e50bf6569e0fb5ddaaa294a6504a957332cd96dbf10920fe2306f3186f",
+          "leaf": "0x7eabff165abcef24a2a5fd9529902a284018790892821b1e043a0f4ffed8ba91",
+          "proof": [
+            "0xd0d7d8106561c3acbcd51b5d5e9561d755dd1f8d261b74743775c7af6556f2ee",
+            "0x95933a7e7de0706684faef7a65ac692f9957c18e1ca93cfa93c0985aa9a3436c"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "assets/index-CxvcAB4J.js",
+      "size": 36211,
+      "sha256": "0xda7b091f6be084e6b0d00bcf98d86199ac5bd75abb7a6ae1b35a213371c04ee4",
+      "contentType": "text/javascript; charset=utf-8",
+      "chunks": [
+        {
+          "index": 0,
+          "size": 24000,
+          "sha256": "0x3176f7dc2e484d0ab8509a2594e57436952fea4b89970e5bb52b8e09bba4dfa7",
+          "leaf": "0xd0d7d8106561c3acbcd51b5d5e9561d755dd1f8d261b74743775c7af6556f2ee",
+          "proof": [
+            "0x7eabff165abcef24a2a5fd9529902a284018790892821b1e043a0f4ffed8ba91",
+            "0x95933a7e7de0706684faef7a65ac692f9957c18e1ca93cfa93c0985aa9a3436c"
+          ]
+        },
+        {
+          "index": 1,
+          "size": 12211,
+          "sha256": "0x92f2b25f55ab674eaa6fb5f2b9f3b8c709d622a73a25f6af094946fc9bd9ebd5",
+          "leaf": "0xa70c08bb5c90f9fd2ff2b45cd60e7527f34c8d91257946db7d025fc507c3f5db",
+          "proof": [
+            "0x251fc94629a719f2cf350644f35d1c4909913b71964af7713196d9300d78f471",
+            "0xdb484feb62b066884a40af3bafb5afb1d09756103fddd3a0b0bd92d9354e2462"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "index.html",
+      "size": 1608,
+      "sha256": "0x78c006ded8c1338d5ea300d85db1cd3e39a2620dfcfe7d13872a52a3d5319732",
+      "contentType": "text/html; charset=utf-8",
+      "chunks": [
+        {
+          "index": 0,
+          "size": 1608,
+          "sha256": "0x78c006ded8c1338d5ea300d85db1cd3e39a2620dfcfe7d13872a52a3d5319732",
+          "leaf": "0x251fc94629a719f2cf350644f35d1c4909913b71964af7713196d9300d78f471",
+          "proof": [
+            "0xa70c08bb5c90f9fd2ff2b45cd60e7527f34c8d91257946db7d025fc507c3f5db",
+            "0xdb484feb62b066884a40af3bafb5afb1d09756103fddd3a0b0bd92d9354e2462"
+          ]
+        }
+      ]
+    }
+  ]
+}
