@@ -455,7 +455,7 @@ forge test
 
 | Task | What | Done when | Needs from you |
 |---|---|---|---|
-| **N1** | Git repository: first commit of everything (secrets and records ignored), then a GitHub repo | `git log` shows the import; later the repo is on GitHub | Create the GitHub repo and push (your account) |
+| **N1 ✅** (github.com/syther069/hashfront, Nov 20; author syther069 only) | Git repository: first commit of everything (secrets and records ignored), then a GitHub repo | `git log` shows the import; later the repo is on GitHub | Create the GitHub repo and push (your account) |
 | **N2** | Normal host for HashSwap: deploy `apps/demo-dapp/dist` (the exact v1 bytes) to a free static host | The watcher run once against it says MATCH for v1 | A Vercel (or Cloudflare Pages) login, or your own domain |
 | **N3** | Status page: build `apps/web` with `VITE_GATE=0xAF96…80F6 VITE_NETWORK=xlayer` and host it | The page shows v1 live and the 32-row policy table from mainnet; the badge works | Same host as N2 |
 | **N4** | Run the watcher continuously: `scripts/run-watcher.ps1` (reporter keystore, Telegram token at hidden prompts), and a GitHub Actions cron variant (`--once` every 5 min) | One JSON line per check, MATCH, for an hour | Telegram chat id (have it) |
