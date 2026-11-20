@@ -14,7 +14,7 @@ foreach ($l in Get-Content wallet-addresses.txt) { if ($l -match '^(\S+)\s+(0x[0
 function Invoke-Checked([string]$what, [scriptblock]$cmd) {
     Write-Host "`n== $what" -ForegroundColor Cyan
     & $cmd
-    if ($LASTEXITCODE -ne 0) { throw "$what failed (exit $LASTEXITCODE). Nothing after it was sent; tell Claude where it stopped." }
+    if ($LASTEXITCODE -ne 0) { throw "$what failed (exit $LASTEXITCODE). Nothing after it was sent; fix the cause and re-run (funding and propose are skipped when already done)." }
 }
 
 # ---- 1. gas for maintainers and reporter (wei): 0.00002 OKB covers ~25 approvals, 0.00005 OKB ~9 alerts
