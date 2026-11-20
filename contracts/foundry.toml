@@ -1,0 +1,27 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+solc_version = "0.8.28"
+evm_version = "cancun"
+optimizer = true
+optimizer_runs = 200
+fs_permissions = [
+  { access = "read", path = "../circuits/out" },
+  { access = "read", path = "./test/fixtures" },
+  { access = "read", path = "./script/probe" },
+  { access = "write", path = "./deployments" },
+]
+
+[fuzz]
+runs = 512
+
+[rpc_endpoints]
+# Official X Layer RPCs (docs: onchainos/dev-docs/xlayer/developer/build-on-xlayer/network-information)
+xlayer = "https://rpc.xlayer.tech"
+xlayer_backup = "https://xlayerrpc.okx.com"
+xlayer_testnet = "https://testrpc.xlayer.tech/terigon"
+
+# Verification on OKLink, per X Layer docs (verify-with-foundry):
+#   forge verify-contract <addr> src/ReleaseGate.sol:ReleaseGate --verifier oklink \
+#     --verifier-url https://www.oklink.com/api/v5/explorer/contract/verify-source-code-plugin/XLAYER --watch

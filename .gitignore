@@ -1,0 +1,14 @@
+node_modules/
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+.env
+.env.*
+wallet-addresses.txt
+contracts/deployments/rehearsal.json
+apps/*/dist/
+apps/*/dist-hijack/
+!apps/demo-dapp/.env.hijack
+contracts/deployments/*.fork.json
+contracts/deployments/*.dryrun.json
+hashfront.json

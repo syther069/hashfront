@@ -1,0 +1,21 @@
+{
+  "name": "@hashfront/watcher",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Compares a protocol's normal website with its live onchain Hashfront release and reports hijacks",
+  "bin": {
+    "hashfront-watch": "./src/main.ts"
+  },
+  "scripts": {
+    "test": "node --test \"test/**/*.test.ts\"",
+    "test:e2e": "node --test \"test/e2e/*.e2e.ts\""
+  },
+  "dependencies": {
+    "@hashfront/cli": "0.1.0",
+    "viem": "2.57.16"
+  },
+  "engines": {
+    "node": ">=22.18"
+  }
+}

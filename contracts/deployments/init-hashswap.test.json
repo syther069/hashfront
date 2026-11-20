@@ -1,0 +1,11 @@
+{
+  "chainId": 196,
+  "container": "0x5D96417d287f6F10979b63b80504926DE4CE92bA",
+  "gate": "0xAF96CA14DB35420BF46b6Ab8feB513306B7D80F6",
+  "name": "4.2.409.tape",
+  "policyId": 4,
+  "processor": "0x39E44DbA62811E87fDe122CA4d6c082568a384D0",
+  "siteRegistry": "0xd6EFb7adCc9c83dC4924Ad56f6a8E4e969b9ADB6",
+  "tapeSendHub": "0xe61A9C7213a6Aa616C246a2B569e555B417b25ee",
+  "url": "https://4-2-409.tapekit.org/"
+}

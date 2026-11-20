@@ -1,0 +1,16 @@
+{
+  "name": "@hashfront/circuits",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "TAP-02 netlist builder, reference evaluator and the Hashfront release-policy circuit",
+  "scripts": {
+    "test": "node --test \"test/**/*.test.ts\"",
+    "build": "node scripts/build.ts"
+  },
+  "exports": {
+    "./tap02": "./src/tap02.ts",
+    "./policy": "./src/policy.ts"
+  },
+  "engines": { "node": ">=22.18" }
+}

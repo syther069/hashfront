@@ -1,0 +1,37 @@
+{
+  "name": "@hashfront/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Stage, approve and activate Hashfront frontend releases on X Layer (TapeOut DeWEB)",
+  "bin": {
+    "hashfront": "./src/main.ts"
+  },
+  "scripts": {
+    "test": "node --test \"test/**/*.test.ts\"",
+    "test:e2e": "node --test \"test/e2e/local.e2e.ts\"",
+    "test:fork": "node --test \"test/e2e/fork.e2e.ts\"",
+    "abi": "node scripts/sync-abi.ts",
+    "test:demo": "node --test \"test/e2e/demo.e2e.ts\"",
+    "test:init": "node --test \"test/e2e/init.e2e.ts\""
+  },
+  "dependencies": {
+    "ox": "1.8.13",
+    "viem": "2.57.16"
+  },
+  "engines": {
+    "node": ">=22.18"
+  },
+  "exports": {
+    "./abi": "./src/abi.ts",
+    "./manifest": "./src/manifest.ts",
+    "./release": "./src/release.ts",
+    "./snippets": "./src/snippets.ts",
+    "./keystore": "./src/keystore.ts",
+    "./merkle": "./src/merkle.ts",
+    "./gate": "./src/gate.ts",
+    "./context": "./src/context.ts",
+    "./chains": "./src/chains.ts",
+    "./package.json": "./package.json"
+  }
+}

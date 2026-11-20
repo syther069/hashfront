@@ -1,0 +1,22 @@
+{
+  "name": "@hashfront/demo-dapp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "HashSwap: a minimal demo protocol frontend that Hashfront releases, watches and protects",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -p tsconfig.json && vite build",
+    "build:hijack": "tsc -p tsconfig.json && vite build --mode hijack --outDir dist-hijack",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "viem": "2.57.16"
+  },
+  "devDependencies": {
+    "vite": "8.3.6"
+  },
+  "engines": {
+    "node": ">=22.18"
+  }
+}

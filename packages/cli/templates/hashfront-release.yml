@@ -1,0 +1,178 @@
+# Hashfront release workflow. Copy to .github/workflows/hashfront-release.yml in your frontend repo.
+#
+#   1. propose   on a version tag: build, pre-flight, hash, propose onchain, keep the exact build as an artifact
+#   2. publish   run manually after 2 maintainers approved (status page: #/approve/<id>): upload + seal
+#   3. go-live   run manually after the timelock: activate, then deploy THE SAME BYTES to your normal host
+#
+# The stages are separate runs because a hosted job stops after 6 hours and the default timelock is 24 hours.
+# Every later stage deploys the artifact from the propose run, never a rebuild: one differing byte on your host would
+# be a watcher MISMATCH.
+#
+# Settings: secret HASHFRONT_PRIVATE_KEY (the uploader key; it can propose, upload and seal, never approve),
+#           variable HASHFRONT_GATE (from `hashfront init`), optional variable HASHFRONT_RPC_URL.
+name: Hashfront release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: "publish (after 2 approvals) or go-live (after the timelock)"
+        type: choice
+        options: [publish, go-live]
+        required: true
+      propose_run_id:
+        description: "Run id of the propose run for this release (printed in its summary)"
+        required: true
+
+permissions:
+  contents: read
+  actions: read # to download the proposed build from the propose run
+
+concurrency:
+  group: hashfront-release
+  cancel-in-progress: false
+
+env:
+  # ---- adjust these to your project
+  BUILD_COMMAND: npm ci && npm run build # must produce a relative-path static build (Vite: base: "./")
+  BUILD_DIR: dist
+  DEPLOY_COMMAND: "" # deploys ./hashfront-release/build to your normal host, e.g. a wrangler/vercel/netlify CLI call
+  STATUS_PAGE: "" # your hosted Hashfront status page, e.g. https://status.example.org/
+  # ---- the Hashfront CLI, pinned to a reviewed commit
+  HASHFRONT_REPO: https://github.com/OWNER/hashfront.git
+  HASHFRONT_REF: COMMIT_SHA
+  # ---- chain
+  HASHFRONT_GATE: ${{ vars.HASHFRONT_GATE }}
+  HASHFRONT_RPC_URL: ${{ vars.HASHFRONT_RPC_URL }}
+  HASHFRONT_NETWORK: xlayer
+
+jobs:
+  propose:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install the Hashfront CLI
+        # cloned, not npm-installed: Node only strips TypeScript types outside node_modules
+        run: |
+          git clone --quiet "$HASHFRONT_REPO" "$RUNNER_TEMP/hashfront"
+          git -C "$RUNNER_TEMP/hashfront" checkout --quiet "$HASHFRONT_REF"
+          (cd "$RUNNER_TEMP/hashfront" && npm ci --workspace packages/cli --no-audit --no-fund)
+          echo "HASHFRONT=node $RUNNER_TEMP/hashfront/packages/cli/src/main.ts" >> "$GITHUB_ENV"
+      - name: Build
+        run: bash -c "$BUILD_COMMAND"
+      - name: Pre-flight (relative paths, index.html, no server code)
+        run: $HASHFRONT preflight "$BUILD_DIR"
+      - name: Hash the build
+        run: $HASHFRONT manifest "$BUILD_DIR" --out manifest.json
+      - name: Propose onchain
+        env:
+          HASHFRONT_PRIVATE_KEY: ${{ secrets.HASHFRONT_PRIVATE_KEY }}
+        run: $HASHFRONT propose --manifest manifest.json --id-file release-id.txt --network "$HASHFRONT_NETWORK"
+      - name: Keep the exact build for the later stages
+        run: |
+          mkdir hashfront-release
+          cp -R "$BUILD_DIR" hashfront-release/build
+          cp manifest.json release-id.txt hashfront-release/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hashfront-release
+          path: hashfront-release
+          retention-days: 30
+          if-no-files-found: error
+      - name: Summary
+        env:
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          ID=$(cat release-id.txt)
+          ROOT=$(node -e 'console.log(JSON.parse(require("fs").readFileSync("manifest.json","utf8")).root)')
+          {
+            echo "### Release v$ID proposed"
+            echo "Root \`$ROOT\`. Maintainers: review and approve${STATUS_PAGE:+ at ${STATUS_PAGE}#/approve/$ID} (download the manifest.json artifact to verify it), or run \`hashfront approve --id $ID --manifest manifest.json\`."
+            echo "After 2 approvals, run this workflow with **stage = publish** and **propose_run_id = $RUN_ID**."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  publish:
+    if: github.event_name == 'workflow_dispatch' && inputs.stage == 'publish'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Check inputs
+        env:
+          RUN_ID: ${{ inputs.propose_run_id }}
+        run: '[[ "$RUN_ID" =~ ^[0-9]+$ ]] || { echo "propose_run_id must be a number"; exit 1; }'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install the Hashfront CLI
+        run: |
+          git clone --quiet "$HASHFRONT_REPO" "$RUNNER_TEMP/hashfront"
+          git -C "$RUNNER_TEMP/hashfront" checkout --quiet "$HASHFRONT_REF"
+          (cd "$RUNNER_TEMP/hashfront" && npm ci --workspace packages/cli --no-audit --no-fund)
+          echo "HASHFRONT=node $RUNNER_TEMP/hashfront/packages/cli/src/main.ts" >> "$GITHUB_ENV"
+      - uses: actions/download-artifact@v4
+        with:
+          name: hashfront-release
+          path: hashfront-release
+          run-id: ${{ inputs.propose_run_id }}
+          github-token: ${{ github.token }}
+      - name: Upload and seal (starts the timelock)
+        env:
+          HASHFRONT_PRIVATE_KEY: ${{ secrets.HASHFRONT_PRIVATE_KEY }}
+        run: |
+          ID=$(cat hashfront-release/release-id.txt)
+          [[ "$ID" =~ ^[0-9]+$ ]] || { echo "bad release id"; exit 1; }
+          cd hashfront-release
+          $HASHFRONT upload --id "$ID" --manifest manifest.json build --network "$HASHFRONT_NETWORK"
+          $HASHFRONT seal --id "$ID" --manifest manifest.json --network "$HASHFRONT_NETWORK"
+          $HASHFRONT status --id "$ID" --network "$HASHFRONT_NETWORK" >> "$GITHUB_STEP_SUMMARY"
+          echo "After the timelock (or with all 3 approvals), run this workflow with **stage = go-live** and the same propose_run_id." >> "$GITHUB_STEP_SUMMARY"
+
+  go-live:
+    if: github.event_name == 'workflow_dispatch' && inputs.stage == 'go-live'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check inputs
+        env:
+          RUN_ID: ${{ inputs.propose_run_id }}
+        run: '[[ "$RUN_ID" =~ ^[0-9]+$ ]] || { echo "propose_run_id must be a number"; exit 1; }'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install the Hashfront CLI
+        run: |
+          git clone --quiet "$HASHFRONT_REPO" "$RUNNER_TEMP/hashfront"
+          git -C "$RUNNER_TEMP/hashfront" checkout --quiet "$HASHFRONT_REF"
+          (cd "$RUNNER_TEMP/hashfront" && npm ci --workspace packages/cli --no-audit --no-fund)
+          echo "HASHFRONT=node $RUNNER_TEMP/hashfront/packages/cli/src/main.ts" >> "$GITHUB_ENV"
+      - uses: actions/download-artifact@v4
+        with:
+          name: hashfront-release
+          path: hashfront-release
+          run-id: ${{ inputs.propose_run_id }}
+          github-token: ${{ github.token }}
+      - name: Activate (anyone may; the policy circuit decides)
+        env:
+          HASHFRONT_PRIVATE_KEY: ${{ secrets.HASHFRONT_PRIVATE_KEY }}
+        run: |
+          ID=$(cat hashfront-release/release-id.txt)
+          [[ "$ID" =~ ^[0-9]+$ ]] || { echo "bad release id"; exit 1; }
+          echo "ID=$ID" >> "$GITHUB_ENV"
+          # --exact: if a newer release is already live, these bytes are stale and must not be deployed
+          if ! $HASHFRONT wait-active --id "$ID" --timeout 5 --exact --network "$HASHFRONT_NETWORK"; then
+            $HASHFRONT activate --id "$ID" --network "$HASHFRONT_NETWORK"
+          fi
+          $HASHFRONT wait-active --id "$ID" --timeout 600 --exact --network "$HASHFRONT_NETWORK"
+      - name: Deploy the approved bytes to the normal host
+        run: |
+          [ -n "$DEPLOY_COMMAND" ] || { echo "set DEPLOY_COMMAND in this workflow to deploy ./hashfront-release/build"; exit 1; }
+          bash -c "$DEPLOY_COMMAND"
+      - name: Summary
+        run: echo "### Release v$ID is live onchain and deployed to the normal host" >> "$GITHUB_STEP_SUMMARY"

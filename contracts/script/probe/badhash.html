@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hashfront probe: hash check</title>
+<style>
+  body { font: 16px/1.5 system-ui, sans-serif; max-width: 40rem; margin: 2rem auto; padding: 0 1rem; color: #111; background: #fff; }
+  #result { font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>Hashfront probe: does TapeKit refuse bad bytes?</h1>
+<p><code>good.js</code> was stored with its correct sha256. <code>bad.js</code> was stored with a deliberately wrong sha256.
+If TapeKit verifies files, only the first script runs.</p>
+<p id="result">good.js: not run · bad.js: not run</p>
+<script>
+  window.__probe = { good: false, bad: false };
+  function render() {
+    document.getElementById("result").textContent =
+      "good.js: " + (window.__probe.good ? "RAN" : "not run") + " · bad.js: " + (window.__probe.bad ? "RAN (TapeKit did NOT refuse it)" : "not run (refused)");
+  }
+  window.addEventListener("load", render);
+</script>
+<script src="good.js"></script>
+<script src="bad.js"></script>
+</body>
+</html>

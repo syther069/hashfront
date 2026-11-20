@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>HashSwap</title>
+    <link rel="icon" href="data:," />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="top">
+        <span class="brand">HashSwap</span>
+        <button id="connect" class="ghost" type="button">Connect wallet</button>
+      </header>
+
+      <section class="card" aria-labelledby="swap-title">
+        <h1 id="swap-title">Swap</h1>
+        <div class="row">
+          <span class="label">You pay</span>
+          <span class="value"><span id="pay">0.000001</span> USDT</span>
+        </div>
+        <div class="row">
+          <span class="label">Balance</span>
+          <span class="value" id="balance">–</span>
+        </div>
+        <div class="row">
+          <span class="label">Router</span>
+          <code class="value" id="spender"></code>
+        </div>
+        <button id="approve" class="primary" type="button" disabled>Connect a wallet first</button>
+        <p id="status" class="status" role="status" aria-live="polite"></p>
+      </section>
+
+      <p class="note">
+        Demo protocol for Hashfront on X Layer. "Swap" only approves 0.000001 USDT to the router; no funds move.
+      </p>
+      <footer class="foot">Release <span id="release"></span></footer>
+    </main>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>

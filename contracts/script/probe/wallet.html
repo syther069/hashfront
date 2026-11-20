@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hashfront probe: wallet</title>
+<style>
+  body { font: 16px/1.5 system-ui, sans-serif; max-width: 40rem; margin: 2rem auto; padding: 0 1rem; color: #111; background: #fff; }
+  button { font: inherit; padding: .5rem 1rem; margin: .25rem .5rem .25rem 0; cursor: pointer; }
+  pre { background: #f4f4f4; padding: .75rem; white-space: pre-wrap; word-break: break-all; }
+  .ok { color: #0a7a2f; } .bad { color: #b00020; }
+</style>
+</head>
+<body>
+<h1>Hashfront probe: wallet on DeWEB</h1>
+<p>Checks that a page served by TapeKit can reach an injected wallet (OKX Wallet) and send a transaction on X Layer.</p>
+<button id="connect">1. Connect wallet</button>
+<button id="send" disabled>2. Send 0 OKB to myself</button>
+<pre id="log">origin: </pre>
+<script>
+  const log = (msg, cls) => {
+    const line = document.createElement("div");
+    line.textContent = msg;
+    if (cls) line.className = cls;
+    document.getElementById("log").appendChild(line);
+  };
+  document.getElementById("log").firstChild.textContent += location.origin;
+  const XLAYER = "0xc4"; // 196
+  let account;
+
+  async function ensureXLayer(eth) {
+    const chainId = await eth.request({ method: "eth_chainId" });
+    if (chainId === XLAYER) return;
+    try {
+      await eth.request({ method: "wallet_switchEthereumChain", params: [{ chainId: XLAYER }] });
+    } catch (err) {
+      if (err && err.code === 4902) {
+        await eth.request({
+          method: "wallet_addEthereumChain",
+          params: [{ chainId: XLAYER, chainName: "X Layer", nativeCurrency: { name: "OKB", symbol: "OKB", decimals: 18 },
+                     rpcUrls: ["https://rpc.xlayer.tech"], blockExplorerUrls: ["https://www.oklink.com/xlayer"] }],
+        });
+      } else {
+        throw err;
+      }
+    }
+  }
+
+  document.getElementById("connect").onclick = async () => {
+    const eth = window.okxwallet || window.ethereum;
+    if (!eth) return log("no injected wallet found", "bad");
+    try {
+      [account] = await eth.request({ method: "eth_requestAccounts" });
+      await ensureXLayer(eth);
+      log("connected " + account + " on chain " + (await eth.request({ method: "eth_chainId" })), "ok");
+      document.getElementById("send").disabled = false;
+    } catch (err) {
+      log("connect failed: " + (err && err.message ? err.message : String(err)), "bad");
+    }
+  };
+
+  document.getElementById("send").onclick = async () => {
+    const eth = window.okxwallet || window.ethereum;
+    try {
+      const hash = await eth.request({ method: "eth_sendTransaction", params: [{ from: account, to: account, value: "0x0" }] });
+      log("sent " + hash, "ok");
+      log("https://www.oklink.com/xlayer/tx/" + hash);
+    } catch (err) {
+      log("send failed: " + (err && err.message ? err.message : String(err)), "bad");
+    }
+  };
+</script>
+</body>
+</html>
