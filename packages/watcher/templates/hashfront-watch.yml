@@ -1,0 +1,73 @@
+# Hashfront watcher on GitHub Actions: one check every 5 minutes (GitHub's minimum; runs can start late under load).
+# Copy to .github/workflows/hashfront-watch.yml in a PRIVATE repo. For second-level detection run the watcher
+# continuously on a server instead (scripts/run-watcher.ps1 or `hashfront-watch` without --once).
+#
+# Settings:
+#   secret   HASHFRONT_REPORTER_KEY   the reporter key (it can only send fixed-text alerts; maintainers can rotate it)
+#   secret   TELEGRAM_BOT_TOKEN        optional
+#   variable HASHFRONT_GATE, HASHFRONT_SITE, HASHFRONT_NAME, TELEGRAM_CHAT (optional)
+# Release manifests live in this repo under manifests/ (one per release; the watcher trusts one only if it
+# reproduces the onchain root).
+name: Hashfront watch
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hashfront-watch
+  cancel-in-progress: false
+
+env:
+  HASHFRONT_REPO: https://github.com/OWNER/hashfront.git
+  HASHFRONT_REF: COMMIT_SHA
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install the Hashfront watcher
+        run: |
+          git clone --quiet "$HASHFRONT_REPO" "$RUNNER_TEMP/hashfront"
+          git -C "$RUNNER_TEMP/hashfront" checkout --quiet "$HASHFRONT_REF"
+          (cd "$RUNNER_TEMP/hashfront" && npm ci --workspace packages/watcher --workspace packages/cli --no-audit --no-fund)
+      # incident state survives between runs, so one incident means one alert
+      - uses: actions/cache/restore@v4
+        with:
+          path: .watcher
+          key: hashfront-watch-${{ github.run_id }}
+          restore-keys: hashfront-watch-
+      - name: Check once
+        env:
+          HASHFRONT_PRIVATE_KEY: ${{ secrets.HASHFRONT_REPORTER_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          GATE: ${{ vars.HASHFRONT_GATE }}
+          SITE: ${{ vars.HASHFRONT_SITE }}
+          NAME: ${{ vars.HASHFRONT_NAME }}
+          CHAT: ${{ vars.TELEGRAM_CHAT }}
+        run: |
+          mkdir -p .watcher
+          ARGS=(--site "$SITE" --gate "$GATE" --network xlayer --manifests manifests --state .watcher/signals.json
+                --name "$NAME" --alert-state .watcher/alerts.json --tapesend-to self --alerts-mainnet --once)
+          [ -n "$CHAT" ] && ARGS+=("--telegram-chat=$CHAT")
+          set +e
+          node "$RUNNER_TEMP/hashfront/packages/watcher/src/main.ts" "${ARGS[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
+          code=${PIPESTATUS[0]}
+          set -e
+          # 0 MATCH, 1 warning, 2 hijack signal, 3 could not check: alerts were already sent by the watcher itself
+          echo "exit code $code" >> "$GITHUB_STEP_SUMMARY"
+          [ "$code" -le 3 ] || exit "$code"
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: .watcher
+          key: hashfront-watch-${{ github.run_id }}
