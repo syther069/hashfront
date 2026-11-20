@@ -476,7 +476,7 @@ forge test
 | **P2 ✅ script** | **Demo video (3 min):** script with exact steps and timings (problem → setup → release → hijack → alert → safe copy → all-clear) | Script in `docs/demo-script.md`; video recorded | Script: Claude; recording: you |
 | **P3 ✅** (first run green) | **GitHub CI:** typecheck, all unit tests, `forge test` (without fork tests), and the demo and web builds on every push, with a badge in the README | Green run on `main` | Claude |
 | **P4 ✅** | **LICENSE:** MIT, © syther069 | File in the repo root | Claude (you can pick another license) |
-| **P5** | **X Layer Builder Code:** register one; set `HASHFRONT_BUILDER_CODE` / `VITE_BUILDER_CODE`; future transactions carry ERC-8021 attribution | One mainnet transaction with the suffix, visible on OKLink | Register: you; wiring: Claude |
+| **P5 ✅ wired** (code `15ld85k6825od6yr`; first attributed mainnet tx comes with P6) | **X Layer Builder Code:** register one; set `HASHFRONT_BUILDER_CODE` / `VITE_BUILDER_CODE`; future transactions carry ERC-8021 attribution | One mainnet transaction with the suffix, visible on OKLink | Register: you; wiring: Claude |
 | **P6** | **OKX Wallet pass (N6)** 💸: v2 release approved from the approve page with a real wallet, plus the HashSwap swap on the DeWEB copy | Transaction links and screenshots in `docs/` | You (wallet) + Claude |
 | **P7** | **User research (Track B):** interview notes or replies | `docs/interviews.md` log filled; a README section | You |
 | **P8** | **24/7 watcher:** turn on the cron template in a private repo with the reporter key as a secret, or keep the PC watcher for the demo | A decision; if cron, green runs every 5 min | Decision: you |

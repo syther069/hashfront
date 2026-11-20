@@ -71,7 +71,7 @@ flowchart LR
 
 | | How Hashfront uses it |
 |---|---|
-| **X Layer** (chain 196) | all contracts and transactions; OKB gas (about 0.02 gwei); Builder Codes (ERC-8021) supported on every CLI and web transaction |
+| **X Layer** (chain 196) | all contracts and transactions; OKB gas (about 0.02 gwei); X Layer Builder Code `15ld85k6825od6yr` (ERC-8021) appended to every CLI, watcher and web transaction |
 | **TapeOut** | the release policy is a taped-out NAND circuit (`circuits/`, TAP-02); the gate evaluates it for every activation |
 | **DeWEB / TapeKit** | releases are stored in the SiteRegistry under the circuit's container; the `.tape` name serves the verified copy |
 | **TapeSend** | onchain alerts through the DeWeb Hub, sent by the gate as the site's container |

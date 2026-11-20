@@ -8,6 +8,9 @@ Set-Location (Join-Path $PSScriptRoot '..')
 
 $rpc = 'https://rpc.xlayer.tech'
 $gate = (Get-Content hashfront.json -Raw | ConvertFrom-Json).gate
+# X Layer Builder Code (ERC-8021): the CLI appends it to every transaction it sends
+$builderCode = (Get-Content hashfront.json -Raw | ConvertFrom-Json).builderCode
+if ($builderCode) { $env:HASHFRONT_BUILDER_CODE = $builderCode }
 $addr = @{}
 foreach ($l in Get-Content wallet-addresses.txt) { if ($l -match '^(\S+)\s+(0x[0-9a-fA-F]{40})') { $addr[$Matches[1]] = $Matches[2] } }
 

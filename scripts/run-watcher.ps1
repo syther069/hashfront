@@ -13,6 +13,8 @@ $ErrorActionPreference = 'Stop'
 Set-Location (Join-Path $PSScriptRoot '..')
 
 $cfg = Get-Content hashfront.json -Raw | ConvertFrom-Json
+# X Layer Builder Code (ERC-8021): appended to every alert transaction the watcher sends
+if ($cfg.builderCode) { $env:HASHFRONT_BUILDER_CODE = $cfg.builderCode }
 New-Item -ItemType Directory -Force -Path .watcher | Out-Null
 if (-not (Test-Path manifests/v1.json)) { throw 'manifests/ has no release manifests; the watcher needs one per release' }
 
