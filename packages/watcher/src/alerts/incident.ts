@@ -16,7 +16,8 @@ export type TeamNotice =
   | "unverifiable"
   | "signal-warn"
   | "phishing-flag"
-  | "dns-unknown";
+  | "dns-unknown"
+  | "reporter-gas-low";
 
 export type Channel = "telegram" | "tapesend";
 export type Hex = `0x${string}`;
@@ -35,6 +36,8 @@ export interface Observation {
   /** sha256 of the compared DNS fields, when DNS resolved */
   dnsObserved?: Hex;
   scanMalicious: boolean;
+  /** the reporter can no longer pay for a few onchain alerts */
+  reporterGasLow?: boolean;
   at: Date;
 }
 
@@ -83,6 +86,7 @@ export const TEAM_AFTER: Record<TeamNotice, number> = {
   "signal-warn": 2,
   "phishing-flag": 1,
   "dns-unknown": 4,
+  "reporter-gas-low": 1,
 };
 
 export const emptyState = (): AlertState => ({ version: 1, runs: { mismatch: 0, dns: 0 }, open: {}, clearRun: 0, team: {}, outbox: [], seq: 0 });
@@ -99,6 +103,7 @@ function teamConditions(o: Observation): Set<TeamNotice> {
   // change, not a blacklist entry, so it goes to the team, who can confirm and act.
   if (o.scanMalicious) on.add("phishing-flag");
   if (o.dnsUnknown) on.add("dns-unknown");
+  if (o.reporterGasLow) on.add("reporter-gas-low");
   return on;
 }
 

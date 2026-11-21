@@ -7,6 +7,8 @@ import type { CheckResult } from "../watch.ts";
 import { emptyState, KIND, settle, step, type AlertState, type Channel, type Hex, type IncidentConfig, type Observation, type Outgoing, type TeamNotice } from "./incident.ts";
 import { assertNoLink, sendTelegram, type TelegramConfig } from "./telegram.ts";
 import { readAlertText, sendTapeSend } from "./tapesend.ts";
+import { checkReporterGas, type GasStatus } from "./gas.ts";
+import type { OkxClient } from "@hashfront/okx/client";
 
 export interface AlertConfig {
   statePath: string;
@@ -17,6 +19,8 @@ export interface AlertConfig {
   telegram?: TelegramConfig;
   /** signer context (reporter key) and recipients for ReleaseGate.alert() */
   tapesend?: { ctx: Context; to: Hex[] };
+  /** OKX Onchain OS client: balance + gas price for the gas guard, and the gateway for alert delivery */
+  okx?: OkxClient;
   /** read-only context for alertPayload() */
   readCtx: Context;
 }
@@ -39,6 +43,7 @@ const TEAM_TEXT: Record<TeamNotice, string> = {
   "signal-warn": "A domain signal needs a look: a new address network, a new certificate issuer, an invalid certificate, or resolvers disagreeing.",
   "phishing-flag": "OnchainOS security dapp-scan flags the website as malicious. Check the domain now and send a community warning if it is confirmed.",
   "dns-unknown": "The domain's DNS records could not be checked for several checks in a row (resolvers failing, or no usable baseline). DNS changes are not being detected.",
+  "reporter-gas-low": "The reporter wallet is low on OKB: fewer than 3 onchain alerts left at the current gas price. Top it up so a hijack alert can't fail for lack of gas.",
 };
 
 /** Same wording as the onchain message, so Telegram and TapeSend never disagree. */
@@ -54,7 +59,7 @@ const FALLBACK: Record<1 | 2 | 3, { subject: string; body: string }> = {
   3: { subject: "Hashfront: all clear", body: "The usual website of this protocol matches the approved release again." },
 };
 
-export function observationOf(r: CheckResult): Observation {
+export function observationOf(r: CheckResult, extra: { reporterGasLow?: boolean } = {}): Observation {
   const s = r.signals;
   const dnsObs = s?.dns?.observation;
   return {
@@ -66,6 +71,7 @@ export function observationOf(r: CheckResult): Observation {
     dnsUnknown: Boolean(s && !s.skipped && (s.dns?.level === "unknown" || s.baseline === "not-recorded")),
     ...(dnsObs?.ok ? { dnsObserved: dnsObs.observed } : {}),
     scanMalicious: s?.scan?.result.status === "malicious",
+    ...(extra.reporterGasLow !== undefined ? { reporterGasLow: extra.reporterGasLow } : {}),
     at: r.checkedAt,
   };
 }
@@ -137,9 +143,20 @@ export function createDispatcher(cfg: AlertConfig) {
   return {
     channels,
     /** Feeds one check through the state machine and delivers everything pending. Never throws for a failed send. */
+    /** the reporter's gas at the last check (only when TapeSend alerts are on) */
+    lastGas: undefined as GasStatus | undefined,
     async handle(r: CheckResult): Promise<Delivery[]> {
       state ??= await loadState(cfg.statePath);
-      state = step(state, observationOf(r), incident).state;
+      let reporterGasLow: boolean | undefined;
+      if (cfg.tapesend?.ctx.account) {
+        try {
+          this.lastGas = await checkReporterGas(cfg.tapesend.ctx.publicClient, cfg.tapesend.ctx.account.address, cfg.okx);
+          reporterGasLow = this.lastGas.low;
+        } catch {
+          this.lastGas = undefined; // unknown balance: no notice either way
+        }
+      }
+      state = step(state, observationOf(r, reporterGasLow === undefined ? {} : { reporterGasLow }), incident).state;
       // saved before and after every send, so a crash mid-send neither loses an incident nor repeats a delivery
       await saveState(cfg.statePath, state);
       const deliveries: Delivery[] = [];

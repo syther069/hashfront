@@ -1,6 +1,8 @@
 // OnchainOS phishing scan (optional): `onchainos security dapp-scan --domain <host>`.
 // Blacklists lag a fresh hijack, so "clean" never softens another signal; it can only add an alert.
 import { execFile } from "node:child_process";
+import { credentialsFromEnv, OkxClient } from "@hashfront/okx/client";
+import { dappScan as okxDappScan } from "@hashfront/okx/endpoints";
 import { errorText } from "./util.ts";
 
 export type ScanResult = { status: "clean" } | { status: "malicious" } | { status: "unavailable"; reason: string };
@@ -16,6 +18,27 @@ export const runOnchainos: RunScan = (host) =>
       else resolve(stdout);
     });
   });
+
+/**
+ * The same scan over the OKX Onchain OS REST API (POST /api/v6/security/dapp-scan), signed with the team's API key.
+ * Works anywhere Node runs (GitHub Actions included) without installing or logging in to the onchainos CLI.
+ * Answers in the CLI's envelope so one parser handles both.
+ */
+export function okxRestScan(client: OkxClient): RunScan {
+  return async (host) => {
+    try {
+      return JSON.stringify({ ok: true, data: await okxDappScan(client, host) });
+    } catch (err) {
+      return JSON.stringify({ ok: false, error: `OKX API: ${errorText(err)}` });
+    }
+  };
+}
+
+/** REST when OKX keys are configured, otherwise the onchainos CLI. */
+export function defaultScanner(): { run: RunScan; via: "okx-api" | "onchainos-cli" } {
+  const creds = credentialsFromEnv();
+  return creds ? { run: okxRestScan(new OkxClient(creds)), via: "okx-api" } : { run: runOnchainos, via: "onchainos-cli" };
+}
 
 export function parseScan(stdout: string): ScanResult {
   let out: unknown;

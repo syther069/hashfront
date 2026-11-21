@@ -5,7 +5,7 @@ import { isIP } from "node:net";
 import { readFile, rename, writeFile } from "node:fs/promises";
 import { diffObservation, observeDns, DEFAULT_DNS_SERVERS, type DnsChange, type DnsObservation, type DnsRecords, type MakeResolver, type Severity } from "./dns.ts";
 import { judgeCert, tlsProbe, type CertBaseline, type CertFinding, type CertInfo, type TlsProbe } from "./cert.ts";
-import { dappScan, runOnchainos, type RunScan, type ScanResult } from "./onchainos.ts";
+import { dappScan, defaultScanner, type RunScan, type ScanResult } from "./onchainos.ts";
 import { errorText } from "./util.ts";
 
 export type Level = "ok" | Severity | "unknown";
@@ -104,7 +104,7 @@ export async function checkSignals(site: URL, mayRecord: boolean, cfg: SignalCon
           (err: unknown): { info?: CertInfo; error?: string } => ({ error: errorText(err) }),
         )
       : undefined,
-    wantScan ? cachedScan(host, cfg, deps.runScan ?? runOnchainos, now) : undefined,
+    wantScan ? cachedScan(host, cfg, deps.runScan ?? scanner().run, now) : undefined,
   ]);
 
   const report: SignalsReport = { level: "ok", baseline: "none" };
@@ -161,6 +161,16 @@ export async function checkSignals(site: URL, mayRecord: boolean, cfg: SignalCon
   if (cfg.statePath && report.baseline === "not-recorded") levels.push("unknown");
   report.level = worst(levels);
   return report;
+}
+
+let defaultScan: ReturnType<typeof defaultScanner> | undefined;
+/** Chosen once per process: OKX REST with keys, else the onchainos CLI. */
+function scanner() {
+  return (defaultScan ??= defaultScanner());
+}
+/** How the phishing scan is reached, for the JSON line. */
+export function scanVia(): "okx-api" | "onchainos-cli" {
+  return scanner().via;
 }
 
 async function cachedScan(host: string, cfg: SignalConfig, run: RunScan, now: () => number) {

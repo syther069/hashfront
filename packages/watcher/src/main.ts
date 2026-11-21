@@ -6,11 +6,14 @@ import { UsageError } from "@hashfront/cli/chains";
 import { createContext } from "@hashfront/cli/context";
 import type { AllowList } from "./compare.ts";
 import { exitCode } from "./exit.ts";
-import { checkSignals, type SignalConfig, type SignalsReport } from "./signals/index.ts";
+import { checkSignals, scanVia, type SignalConfig, type SignalsReport } from "./signals/index.ts";
 import { createDispatcher, validateName, type Delivery, type Dispatcher } from "./alerts/index.ts";
 import { sendTelegram, type TelegramConfig } from "./alerts/telegram.ts";
 import { resolveRecipients } from "./alerts/tapesend.ts";
 import { keyFromAccount } from "@hashfront/cli/keystore";
+import { credentialsFromEnv, OkxClient } from "@hashfront/okx/client";
+import { formatEther } from "viem";
+import type { GasStatus } from "./alerts/gas.ts";
 import { checkOnce, watchLoop, type CheckResult, type WatchConfig } from "./watch.ts";
 
 const USAGE = `hashfront-watch --site <url> --gate <address> --manifests <dir> [options]
@@ -140,12 +143,12 @@ function signalsJson(s: SignalsReport) {
     ...(s.skipped ? { skipped: s.skipped } : {}),
     ...(dns ? { dns } : {}),
     ...(cert ? { cert } : {}),
-    ...(s.scan ? { scan: { level: s.scan.level, ...s.scan.result, at: s.scan.cachedAt } } : {}),
+    ...(s.scan ? { scan: { level: s.scan.level, ...s.scan.result, via: scanVia(), at: s.scan.cachedAt } } : {}),
   };
 }
 
 /** One JSON line per check, for logs and for the alert layer (step 9). */
-function report(r: CheckResult, alerts: Delivery[] | { error: string } = []): string {
+function report(r: CheckResult, alerts: Delivery[] | { error: string } = [], gas?: GasStatus): string {
   const v = r.verdict;
   return JSON.stringify({
     at: r.checkedAt.toISOString(),
@@ -161,6 +164,7 @@ function report(r: CheckResult, alerts: Delivery[] | { error: string } = []): st
     ...(r.rejectedManifests.length ? { rejectedManifests: r.rejectedManifests } : {}),
     ...(r.signals ? { signals: signalsJson(r.signals) } : {}),
     ...(Array.isArray(alerts) ? (alerts.length ? { alerts } : {}) : { alertError: alerts.error }),
+    ...(gas ? { reporterGas: { okb: formatEther(gas.balanceWei), low: gas.low, via: gas.via } } : {}),
     ms: r.durationMs,
   });
 }
@@ -267,6 +271,10 @@ async function main(argv: string[]): Promise<number> {
     ...(signals ? { signals } : {}),
   };
 
+  // OKX Onchain OS API (security scan, balance, gas price, gateway): on when OKX_API_KEY / OKX_SECRET_KEY /
+  // OKX_API_PASSPHRASE are set; every use falls back to the RPC or the onchainos CLI.
+  const okxCreds = credentialsFromEnv();
+  const okxClient = okxCreds ? new OkxClient(okxCreds) : undefined;
   let dispatcher: Dispatcher | undefined;
   if (telegram || values["tapesend-to"]) {
     if (!values.name) throw new UsageError("alerts need --name (the protocol name shown in messages)");
@@ -293,6 +301,7 @@ async function main(argv: string[]): Promise<number> {
       readCtx: ctx,
       ...(telegram ? { telegram } : {}),
       ...(tapesend ? { tapesend } : {}),
+      ...(okxClient ? { okx: okxClient } : {}),
     });
   }
   // An alert-layer failure (an unreadable state file, say) is reported next to the verdict, never instead of it.
@@ -307,7 +316,7 @@ async function main(argv: string[]): Promise<number> {
 
   if (values.once) {
     const r = await checkOnce(ctx, cfg);
-    console.log(report(r, await alertsFor(r)));
+    console.log(report(r, await alertsFor(r), dispatcher?.lastGas));
     return exitCode(r.verdict.status, r.signals?.level ?? "ok");
   }
 
@@ -317,7 +326,7 @@ async function main(argv: string[]): Promise<number> {
   await watchLoop(ctx, cfg, {
     intervalMs: interval * 1000,
     signal: stop.signal,
-    onResult: async (r) => console.log(report(r, await alertsFor(r))),
+    onResult: async (r) => console.log(report(r, await alertsFor(r), dispatcher?.lastGas)),
     onError: (err) => console.error(JSON.stringify({ at: new Date().toISOString(), error: err instanceof Error ? err.message : String(err) })),
   });
   return 0;
