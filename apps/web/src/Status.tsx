@@ -6,6 +6,8 @@ import type { PublicClient } from "viem";
 import { dewebUrl, linkFor, publicClientFor, type Target } from "./config.ts";
 import { ago, ALERT_KIND, approvers, contextFor, readSnapshot, short, type ReleaseRow, type Snapshot } from "./chain.ts";
 import { inputNames, isPolicyV1, truthTable, type Row } from "./truthTable.ts";
+import { Affected } from "./Affected.tsx";
+import { useOkbPrice } from "./okx.ts";
 
 type Table = { ok: true; rows: Row[]; v1: boolean } | { ok: false; error: string };
 
@@ -34,11 +36,14 @@ export function Status({ target }: { target: Target }) {
   if (q.isError) return <p className="error">Could not read the gate: {q.error.message}</p>;
   const s = q.data;
   const table = tableOf(s);
+  const alertOpen = s.lastAlert.kind === 1 || s.lastAlert.kind === 2;
   return (
     <>
       <AlertBanner s={s} />
+      {alertOpen && <Affected target={target} alertOpen />}
       <Overview s={s} target={target} v1={table.ok && table.v1} />
       <Releases s={s} target={target} />
+      {!alertOpen && <Affected target={target} alertOpen={false} />}
       <Policy s={s} table={table} />
       <Badge target={target} />
     </>
@@ -97,6 +102,7 @@ function Overview({ s, target, v1 }: { s: Snapshot; target: Target; v1: boolean 
             ? `2 of 3 maintainers + ${ago(info.timelock)} timelock, or 3 of 3 at once.`
             : `Custom policy circuit (see the table below); timelock ${ago(info.timelock)}.`}{" "}
           {info.frozen ? <strong className="bad">FROZEN: no release can go live.</strong> : "Not frozen."}
+          <OkbPrice />
         </p>
         <ol className="maintainers">
           {info.maintainers.map((m, i) => (
@@ -242,5 +248,16 @@ function Badge({ target }: { target: Target }) {
         {copied ? "Copied" : "Copy snippet"}
       </button>
     </section>
+  );
+}
+
+function OkbPrice() {
+  const p = useOkbPrice();
+  if (!p.data) return null;
+  return (
+    <span className="muted small" data-testid="okb-price">
+      {" "}
+      OKB ${p.data.okbUsd.toLocaleString("en-US", { maximumFractionDigits: 2 })} (OKX Market API).
+    </span>
   );
 }

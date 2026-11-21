@@ -1,16 +1,17 @@
 // Maintainer approve page. The approval signs the onchain root and chunk count of the release, never values from the
 // loaded manifest; the manifest is only there so a human can see what that root contains, and it is shown only once
 // it recomputes to exactly that root.
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAccount, useConnect, useDisconnect, usePublicClient, useSwitchChain, useWalletClient } from "wagmi";
-import { BaseError, ContractFunctionRevertedError, type Hex, type PublicClient } from "viem";
+import { BaseError, ContractFunctionRevertedError, encodeFunctionData, formatEther, type Hex, type PublicClient } from "viem";
 import { releaseGateAbi } from "@hashfront/cli/abi";
 import { readGateInfo, readRelease } from "@hashfront/cli/gate";
 import { diffManifests, matchesOnchain, parseManifest, type Manifest } from "@hashfront/cli/release";
 import { linkFor, publicClientFor, type Target } from "./config.ts";
 import { approvers, contextFor, short, slotOf } from "./chain.ts";
 import { dataSuffix } from "./wallet.ts";
+import { useOkbPrice, usd, useTxScan } from "./okx.ts";
 
 type Loaded = { ok: true; manifest: Manifest; name: string } | { ok: false; error: string; name: string };
 
@@ -59,6 +60,7 @@ function ApproveInner({ target, id }: { target: Target; id: bigint }) {
   const [busy, setBusy] = useState<string>();
   const [result, setResult] = useState<{ ok: boolean; text: string }>();
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [scanBlock, setScanBlock] = useState<string>();
 
   // the wallet's own chain, which can be one this page's config does not know (useChainId would not show that)
   const { address, isConnected, chainId: walletChainId } = useAccount();
@@ -86,6 +88,7 @@ function ApproveInner({ target, id }: { target: Target; id: bigint }) {
   if (!isConnected) blockers.push("connect a maintainer wallet");
   else if (slot === undefined) blockers.push(`the connected wallet ${short(address ?? "")} is not a maintainer of this gate`);
   else if (alreadyApproved) blockers.push(`M${slot + 1} already approved this release`);
+  if (scanBlock) blockers.push(scanBlock);
   if (wrongChain) blockers.push(`switch the wallet to ${target.chain.name}`);
   else if (isConnected && !walletClient) blockers.push("waiting for the wallet");
 
@@ -189,6 +192,13 @@ function ApproveInner({ target, id }: { target: Target; id: bigint }) {
             )}
           </p>
         )}
+        {address && slot !== undefined && verified && !closed && !wrongChain && (
+          <OkxScan
+            client={client}
+            tx={{ from: address, to: target.gate, data: encodeFunctionData({ abi: releaseGateAbi, functionName: "approve", args: [id, release.root, release.totalChunks] }) }}
+            onBlock={setScanBlock}
+          />
+        )}
         {blockers.length > 0 && (
           <ul className="blockers" data-testid="blockers">
             {blockers.map((b) => (
@@ -267,6 +277,49 @@ function DiffTable({ rows, compared }: { rows: ReturnType<typeof diffManifests>;
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+/** Gas a maintainer approve uses on mainnet (M1's OKX Wallet approval: 43,131), with headroom. */
+const APPROVE_GAS = 50_000n;
+
+/**
+ * OKX Onchain OS pre-execution scan of the exact approve transaction, before the wallet asks for a signature.
+ * A warning needs an explicit acknowledgement; an unavailable scan never blocks (the gate's own checks still apply).
+ */
+function OkxScan({ client, tx, onBlock }: { client: PublicClient; tx: { from: string; to: string; data: string }; onBlock: (b: string | undefined) => void }) {
+  const scan = useTxScan(tx);
+  const price = useOkbPrice();
+  const gasPrice = useQuery({ queryKey: ["gas-price"], queryFn: () => client.getGasPrice(), staleTime: 15_000 });
+  const [ack, setAck] = useState(false);
+  const risky = scan.data !== undefined && !scan.data.safe;
+  useEffect(() => {
+    onBlock(risky && !ack ? "acknowledge the OKX security warning" : undefined);
+    return () => onBlock(undefined);
+  }, [risky, ack, onBlock]);
+  if (scan.isError && /not available/.test(scan.error.message)) return null; // no /api on this host
+  const feeOkb = gasPrice.data ? Number(formatEther(APPROVE_GAS * gasPrice.data)) : undefined;
+  return (
+    <div className={`scan ${risky ? "danger" : ""}`} data-testid="okx-scan">
+      <strong>OKX security scan</strong>{" "}
+      {scan.isPending && <span className="muted">checking this transaction…</span>}
+      {scan.isError && <span className="muted">unavailable right now ({scan.error.message}); the gate's own checks still apply.</span>}
+      {scan.data?.safe && <span className="good" data-testid="okx-scan-safe">no risk found in this approve transaction.</span>}
+      {risky && (
+        <>
+          <span className="error">OKX flags this transaction{scan.data?.action ? ` (${scan.data.action})` : ""}.</span>
+          <pre className="snippet">{JSON.stringify({ risks: scan.data?.risks, warnings: scan.data?.warnings }, null, 2)}</pre>
+          <label>
+            <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} /> I reviewed the warning and still want to approve
+          </label>
+        </>
+      )}
+      {feeOkb !== undefined && (
+        <div className="muted small">
+          Network fee ≈ {feeOkb.toPrecision(2)} OKB {usd(feeOkb, price.data)}
+        </div>
+      )}
     </div>
   );
 }

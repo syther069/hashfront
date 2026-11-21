@@ -198,3 +198,78 @@ test("a wallet on another chain cannot approve and is asked to switch", async ()
   assert.equal(await page.getByTestId("approve").isDisabled(), true);
   assert.equal(await page.getByRole("button", { name: "Switch to Foundry" }).count(), 1);
 });
+
+// ---------------------------------------------------------------- OKX Onchain OS features (the /api functions)
+const USER = "0x51C71Ad9D6c7871bB9eDC214D4cd0472640B488C";
+const approvalsBody = {
+  source: "OKX Onchain OS security API",
+  approvals: [
+    { token: "0x1e4a5963abfd975d8c9021ce480b42188849d41d", symbol: "USDT", spender: "0xbad0000000000000000000000000000000000bad", amount: "unlimited", unlimited: true, risk: "eoa", reasons: ["spender is a plain wallet, not a contract", "unlimited amount"] },
+    { token: "0x1e4a5963abfd975d8c9021ce480b42188849d41d", symbol: "USDT", spender: "0xa1da93a3fd135fc83e3b5f69dcb9d73babde5306", amount: "0.000001", unlimited: false, risk: "trusted", reasons: ["spender is one of this protocol's own addresses"] },
+  ],
+};
+
+async function mockApi(page: Page, scan: { safe: boolean; action: string }) {
+  await page.route("**/api/**", async (route) => {
+    const url = new URL(route.request().url());
+    const json = (body: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
+    if (url.pathname === "/api/price") return json({ okbUsd: 75.91, time: Date.now(), source: "OKX Onchain OS Market API" });
+    if (url.pathname === "/api/approvals") return json({ ...approvalsBody, address: url.searchParams.get("address") });
+    if (url.pathname === "/api/tx-scan") return json({ ...scan, risks: scan.safe ? [] : [{ type: "test" }], warnings: [] });
+    return route.fallback();
+  });
+}
+
+test("without /api (DeWEB copy, plain static host) the OKX panels stay hidden", async () => {
+  const q = `?gate=${h.gate}&network=local&rpc=${encodeURIComponent(h.rpc)}`;
+  const page = await browser.newPage();
+  await page.goto(`${base}index.html${q}#/`);
+  await page.getByTestId("alert-state").waitFor();
+  await page.waitForTimeout(1500);
+  assert.equal(await page.getByTestId("affected").count(), 0);
+  assert.equal(await page.getByTestId("okb-price").count(), 0);
+  await page.close();
+});
+
+test("during an open alert, 'Am I affected?' comes first and ranks a drainer approval above the protocol's own", async () => {
+  const q = `?gate=${h.gate}&network=local&rpc=${encodeURIComponent(h.rpc)}`;
+  const page = await browser.newPage();
+  await mockApi(page, { safe: true, action: "" });
+  await page.goto(`${base}index.html${q}#/`);
+  await page.getByTestId("affected").waitFor(); // the earlier test left an open alert(1) on this gate
+  assert.match((await page.getByTestId("affected").getAttribute("class")) ?? "", /urgent/);
+  const order = await page.locator("main > section").evaluateAll((els) => els.map((e) => e.getAttribute("data-testid") ?? e.className));
+  assert.ok(order.indexOf("affected") < order.findIndex((c) => /grid/.test(c)), `affected panel should come before the overview: ${order}`);
+  await page.getByTestId("affected-address").fill(USER);
+  await page.getByTestId("affected-table").waitFor();
+  assert.equal(await page.getByTestId("approval-eoa").count(), 1);
+  assert.equal(await page.getByTestId("approval-trusted").count(), 1);
+  assert.match(await page.getByTestId("approval-eoa").innerText(), /plain wallet[\s\S]*unlimited/);
+  assert.equal(await page.getByTestId("revoke").isDisabled(), true, "revoking needs the owner's wallet");
+  assert.match(await page.getByTestId("okb-price").innerText(), /OKB \$75\.91 \(OKX Market API\)/);
+  await page.close();
+});
+
+test("approve page: an OKX scan warning blocks Approve until the maintainer acknowledges it; a clean scan does not", async () => {
+  const q = `?gate=${h.gate}&network=local&rpc=${encodeURIComponent(h.rpc)}`;
+  for (const scan of [{ safe: false, action: "warn" }, { safe: true, action: "" }]) {
+    const page = await walletPage(ADDR.m3);
+    await mockApi(page, scan);
+    await page.goto(`${base}index.html${q}#/approve/1`);
+    await page.getByTestId("manifest-input").setInputFiles(path.join(h.workDir, "manifest.json"));
+    await page.getByTestId("connect").first().click();
+    await page.getByTestId("okx-scan").waitFor();
+    if (!scan.safe) {
+      await page.getByText("OKX flags this transaction").waitFor();
+      assert.match(await page.getByTestId("blockers").innerText(), /acknowledge the OKX security warning/);
+      assert.equal(await page.getByTestId("approve").isDisabled(), true);
+      await page.getByLabel("I reviewed the warning and still want to approve").check();
+      await page.waitForFunction(() => !document.querySelector('[data-testid="blockers"]')?.textContent?.includes("OKX"));
+    } else {
+      await page.getByTestId("okx-scan-safe").waitFor();
+    }
+    assert.equal(await page.getByTestId("approve").isDisabled(), false);
+    assert.match(await page.getByTestId("okx-scan").innerText(), /Network fee ≈ .* OKB ≈ \$/);
+    await page.close();
+  }
+});

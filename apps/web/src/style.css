@@ -262,3 +262,44 @@ footer {
   font-size: 12px;
   padding: 8px 0 24px;
 }
+/* "Am I affected?" and the OKX scan */
+.affected.urgent {
+  border-color: var(--bad);
+  box-shadow: 0 0 0 1px var(--bad) inset;
+}
+input.addr {
+  font: 13px/1.4 var(--mono);
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--fg);
+  min-width: 0;
+  flex: 1 1 320px;
+}
+.pill.risk.flagged,
+.pill.risk.eoa {
+  border-color: var(--bad);
+  color: var(--bad);
+}
+.pill.risk.unknown {
+  color: var(--muted);
+}
+.pill.risk.trusted {
+  border-color: var(--good);
+  color: var(--good);
+}
+tr.risk-flagged td,
+tr.risk-eoa td {
+  background: var(--bad-bg);
+}
+.scan {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.scan.danger {
+  border-color: var(--bad);
+  background: var(--bad-bg);
+}

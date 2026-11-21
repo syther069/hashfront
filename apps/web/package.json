@@ -7,7 +7,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -p tsconfig.json && vite build",
+    "build": "tsc -p tsconfig.json && vite build && vite build -c vite.api.config.ts",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",
     "test": "node --test \"test/*.test.ts\"",
     "test:e2e": "node --test \"test/*.e2e.ts\""
@@ -15,6 +15,7 @@
   "dependencies": {
     "@hashfront/circuits": "0.1.0",
     "@hashfront/cli": "0.1.0",
+    "@hashfront/okx": "0.1.0",
     "@tanstack/react-query": "5.106.0",
     "ox": "1.8.13",
     "react": "19.3.1",
