@@ -52,6 +52,13 @@ export function parseAddress(value: string | undefined, what: string): Address {
  *   HASHFRONT_PRIVATE_KEY   signer for write commands in CI (people use --account <foundry keystore> instead)
  *   HASHFRONT_BUILDER_CODE  X Layer Builder Code, appended to calldata as an ERC-8021 suffix
  */
+/** ERC-8021 suffix for the X Layer Builder Code in HASHFRONT_BUILDER_CODE, for transactions signed outside viem's
+ * sendTransaction (which adds the client's dataSuffix itself). */
+export function builderDataSuffix(): Hex | undefined {
+  const code = process.env.HASHFRONT_BUILDER_CODE?.trim();
+  return code ? Attribution.toDataSuffix({ codes: [code] }) : undefined;
+}
+
 export function createContext(opts: ContextOptions): Context {
   const chain = resolveNetwork(opts.network);
   const urls = opts.rpcUrl ? [opts.rpcUrl] : chain.rpcUrls.default.http;
@@ -67,8 +74,7 @@ export function createContext(opts: ContextOptions): Context {
     if (!isHex(key) || key.length !== 66) throw new UsageError("HASHFRONT_PRIVATE_KEY must be a 0x-prefixed 32-byte hex key");
     account = privateKeyToAccount(key as Hex);
 
-    const code = process.env.HASHFRONT_BUILDER_CODE?.trim();
-    const dataSuffix = code ? Attribution.toDataSuffix({ codes: [code] }) : undefined;
+    const dataSuffix = builderDataSuffix();
     walletClient = createWalletClient({ account, chain, transport, ...(dataSuffix ? { dataSuffix } : {}) });
   }
 

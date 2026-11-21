@@ -129,9 +129,9 @@ export function createDispatcher(cfg: AlertConfig) {
           out.push({ channel, audience: m.audience, kind: m.kind, ok: true });
         } else {
           const tp = cfg.tapesend!;
-          const r = await sendTapeSend(tp.ctx, m.kind as 1 | 2 | 3, m.observed, tp.to);
+          const r = await sendTapeSend(tp.ctx, m.kind as 1 | 2 | 3, m.observed, tp.to, cfg.okx);
           // Sent once the Alert event is on chain, even if some deliveries failed: resending would duplicate the record.
-          out.push({ channel, audience: m.audience, kind: m.kind, ok: true, detail: r.delivered === undefined ? `${r.tx} (delivery counts unavailable)` : `${r.tx} delivered ${r.delivered}, failed ${r.failed}` });
+          out.push({ channel, audience: m.audience, kind: m.kind, ok: true, detail: `${r.delivered === undefined ? `${r.tx} (delivery counts unavailable)` : `${r.tx} delivered ${r.delivered}, failed ${r.failed}`} via ${r.route}${r.orderId ? ` (OKX order ${r.orderId})` : ""}` });
         }
       } catch (err) {
         out.push({ channel, audience: m.audience, kind: m.kind, ok: false, detail: errorText(err) });
