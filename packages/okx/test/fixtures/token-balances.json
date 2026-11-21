@@ -1,0 +1,16 @@
+[
+  {
+    "tokenAssets": [
+      {
+        "chainIndex": "196",
+        "symbol": "OKB",
+        "balance": "0.00004080959954048",
+        "tokenPrice": "75.65",
+        "isRiskToken": false,
+        "rawBalance": "40809599540480",
+        "address": "0xec8b730f7e9f69e53fe257473c4809ef93dc46de",
+        "tokenContractAddress": ""
+      }
+    ]
+  }
+]

@@ -1,0 +1,20 @@
+{
+  "name": "@hashfront/okx",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Typed, signed client for the OKX Onchain OS API on X Layer (security, gateway, balances, market)",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test \"test/**/*.test.ts\""
+  },
+  "exports": {
+    "./client": "./src/client.ts",
+    "./endpoints": "./src/endpoints.ts",
+    "./types": "./src/types.ts",
+    "./risk": "./src/risk.ts"
+  },
+  "engines": {
+    "node": ">=22.18"
+  }
+}

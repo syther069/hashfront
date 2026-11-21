@@ -1,0 +1,26 @@
+[
+  {
+    "total": 1,
+    "cursor": 2770512231,
+    "dataList": [
+      {
+        "chainIndex": 196,
+        "address": "0x51c71ad9d6c7871bb9edc214d4cd0472640b488c",
+        "approvalAddress": "0xa1da93a3fd135fc83e3b5f69dcb9d73babde5306",
+        "protocolIcon": null,
+        "protocolName": null,
+        "tokenAddress": "0x1e4a5963abfd975d8c9021ce480b42188849d41d",
+        "approvalType": "approval",
+        "tags": "isEoa",
+        "blockTime": 1795195210000,
+        "vulnerabilityFlag": false,
+        "remainAmount": "1",
+        "status": "1",
+        "ext": "{\"success\":true}",
+        "network": "X Layer",
+        "symbol": "USDT_Bridged",
+        "remainAmtPrecise": "0.000001"
+      }
+    ]
+  }
+]

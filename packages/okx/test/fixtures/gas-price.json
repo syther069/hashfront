@@ -1,0 +1,10 @@
+[
+  {
+    "normal": "22000001",
+    "min": "20000001",
+    "max": "22000001",
+    "supportEip1559": false,
+    "eip1559Protocol": {},
+    "priorityFee": {}
+  }
+]
