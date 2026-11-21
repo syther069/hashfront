@@ -5,6 +5,7 @@
 # Settings:
 #   secret   HASHFRONT_REPORTER_KEY   the reporter key (it can only send fixed-text alerts; maintainers can rotate it)
 #   secret   TELEGRAM_BOT_TOKEN        optional
+#   secrets  OKX_API_KEY, OKX_SECRET_KEY, OKX_API_PASSPHRASE   optional (OKX developer portal)
 #   variable HASHFRONT_GATE, HASHFRONT_SITE, HASHFRONT_NAME, TELEGRAM_CHAT (optional)
 # Release manifests live in this repo under manifests/ (one per release; the watcher trusts one only if it
 # reproduces the onchain root).
@@ -39,7 +40,7 @@ jobs:
         run: |
           git clone --quiet "$HASHFRONT_REPO" "$RUNNER_TEMP/hashfront"
           git -C "$RUNNER_TEMP/hashfront" checkout --quiet "$HASHFRONT_REF"
-          (cd "$RUNNER_TEMP/hashfront" && npm ci --workspace packages/watcher --workspace packages/cli --no-audit --no-fund)
+          (cd "$RUNNER_TEMP/hashfront" && npm ci --workspace packages/watcher --workspace packages/cli --workspace packages/okx --no-audit --no-fund)
       # incident state survives between runs, so one incident means one alert
       - uses: actions/cache/restore@v4
         with:
@@ -50,6 +51,10 @@ jobs:
         env:
           HASHFRONT_PRIVATE_KEY: ${{ secrets.HASHFRONT_REPORTER_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          # optional: OKX Onchain OS API (REST phishing scan, gas guard, alerts through the OKX Onchain Gateway)
+          OKX_API_KEY: ${{ secrets.OKX_API_KEY }}
+          OKX_SECRET_KEY: ${{ secrets.OKX_SECRET_KEY }}
+          OKX_API_PASSPHRASE: ${{ secrets.OKX_API_PASSPHRASE }}
           GATE: ${{ vars.HASHFRONT_GATE }}
           SITE: ${{ vars.HASHFRONT_SITE }}
           NAME: ${{ vars.HASHFRONT_NAME }}

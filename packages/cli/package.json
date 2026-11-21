@@ -17,6 +17,7 @@
     "test:init": "node --test \"test/e2e/init.e2e.ts\""
   },
   "dependencies": {
+    "@hashfront/okx": "0.1.0",
     "ox": "1.8.13",
     "viem": "2.57.16"
   },
@@ -33,6 +34,7 @@
     "./gate": "./src/gate.ts",
     "./context": "./src/context.ts",
     "./chains": "./src/chains.ts",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./doctor": "./src/doctor.ts"
   }
 }

@@ -16,6 +16,7 @@ import {
 } from "./commands.ts";
 import { createContext } from "./context.ts";
 import { cmdInit } from "./init.ts";
+import { doctor } from "./doctor.ts";
 import { keyFromAccount } from "./keystore.ts";
 import { preflight } from "./preflight.ts";
 import { describeError } from "./errors.ts";
@@ -28,6 +29,9 @@ Setup:
              deploy the gate on X Layer (simulates unless --broadcast; mainnet asks you to type DEPLOY) and print the
              verified link, badge snippet, watcher command and CI settings. Missing values are asked for in a terminal.
   preflight  <dir>                                  check a static build works on DeWEB (exit 2 on errors)
+  doctor     [--gate <addr>] [--site <url>] [--reporter <addr>]
+                                                   check X Layer RPC, the gate, the clock and every OKX Onchain OS API
+                                                   Hashfront uses (keys from OKX_API_KEY / OKX_SECRET_KEY / OKX_API_PASSPHRASE)
 
 Release flow (approve first, upload second):
   manifest   <dir> [--out manifest.json]           hash a build directory, write the Merkle manifest
@@ -114,6 +118,17 @@ async function main(argv: string[]): Promise<number> {
   if (!command) {
     console.error(USAGE);
     return 1;
+  }
+
+  if (command === "doctor") {
+    const checks = await doctor({
+      rpc: values.rpc ?? process.env.HASHFRONT_RPC_URL,
+      gate: values.gate ?? process.env.HASHFRONT_GATE,
+      site: values.site,
+      reporter: values.reporter,
+    });
+    for (const c of checks) console.log(`${c.ok ? "ok  " : "FAIL"}  ${c.name.padEnd(28)} ${c.detail}`);
+    return checks.every((c) => c.ok) ? 0 : 1;
   }
 
   if (command === "preflight") {

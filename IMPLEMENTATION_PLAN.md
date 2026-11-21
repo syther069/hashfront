@@ -482,7 +482,7 @@ forge test
 | **P8** | **24/7 watcher:** turn on the cron template in a private repo with the reporter key as a secret, or keep the PC watcher for the demo | A decision; if cron, green runs every 5 min | Decision: you |
 | **P9** | **TapeSend client view (N7):** show an alert in a client the judges can open, or document the on-chain read (`inboxCount` and payload) | One verifiable view, documented | Claude (after P1–P4) |
 
-## Phase 8: OKX Onchain OS API keys (plan only, added Nov 20)
+## Phase 8: OKX Onchain OS API keys (added Nov 20; ✅ built Nov 21, see docs/evidence-okx-api.md; only a live gateway alert on mainnet is still open)
 
 **Scope:** the user has API keys from the OKX developer portal. This is what the docs show (read Nov 20) and how each product could make Hashfront stronger. Auth is `OK-ACCESS-KEY` / `-SIGN` / `-PASSPHRASE` / `-TIMESTAMP` headers, so a secret is involved.
 

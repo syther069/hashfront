@@ -18,6 +18,7 @@ import { createPublicClient, formatEther, getAddress, http, isAddress, parseAbi,
 import { processorAbi, releaseGateAbi } from "./abi.ts";
 import { UsageError, xlayer } from "./chains.ts";
 import { preflight } from "./preflight.ts";
+import { okbUsd } from "./doctor.ts";
 import { badgeSnippet, dewebUrl } from "./snippets.ts";
 
 const PROCESSOR = "0x39E44DbA62811E87fDe122CA4d6c082568a384D0";
@@ -229,7 +230,9 @@ export async function cmdInit(o: InitOptions, log: (s: string) => void = (s) => 
     : alreadyOpen
       ? `reusing circuit #${o.policyId}, whose container is already open`
       : `reusing circuit #${o.policyId}; opening its container`;
-  log(`cost: ${formatEther(fees)} OKB in TapeOut fees (${what}) plus gas (about 0.0001 OKB)`);
+  const usdPrice = await okbUsd();
+  const inUsd = usdPrice ? ` (≈ $${(Number(formatEther(fees)) * usdPrice).toFixed(2)} at $${usdPrice.toFixed(2)}/OKB, OKX Market API)` : "";
+  log(`cost: ${formatEther(fees)} OKB in TapeOut fees${inUsd} (${what}) plus gas (about 0.0001 OKB)`);
 
   // ---- deployment file: one per site; a finished one is never overwritten
   const contractsDir = path.resolve(o.contracts ?? path.join(path.dirname(fileURLToPath(import.meta.url)), "../../../contracts"));

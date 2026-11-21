@@ -44,6 +44,21 @@ Both alerts together cost 0.0000092 OKB.
 
 **With a real wallet** ([`docs/evidence-wallet-pass.md`](docs/evidence-wallet-pass.md)): a maintainer approved release v2 from OKX Wallet on the approve page. That transaction is [`0x1024923a…`](https://www.oklink.com/xlayer/tx/0x1024923ab8854aa45dcc44e10a7c56c2a5b1de77f7c868bacf9e9b576179df1b) and carries Builder Code `15ld85k6825od6yr`. A user then sent a swap approval from the verified DeWEB copy: [`0xf8bbeef5…`](https://www.oklink.com/xlayer/tx/0xf8bbeef560e447e0806ebec63db293631078cb0862c930e80ef630f5da367d97).
 
+## Built on OKX Onchain OS
+
+Hashfront uses OKX's APIs on X Layer for the parts where a hijack hurts most. Details and live results: [`docs/evidence-okx-api.md`](docs/evidence-okx-api.md).
+
+| | OKX API | What it does for users |
+|---|---|---|
+| **Am I affected?** | Security: approvals | During an alert, users paste their address and see every X Layer token approval. The ones not to the protocol's contracts are flagged (plain wallet, unlisted, or flagged by OKX), with a one-click revoke |
+| **Approve with a second opinion** | Security: transaction scan | A maintainer sees OKX's pre-execution scan of the exact `approve` transaction before signing; a warning must be acknowledged |
+| **Alerts that get through** | Onchain Gateway: simulate, gas price, broadcast, orders | Every alert is simulated by OKX, priced by the gateway, and broadcast through OKX and the RPC at once (same bytes, so never a double alert) |
+| **Never out of gas** | Balance + Gateway gas price | The watcher warns the team before the reporter wallet can't pay for 3 alerts |
+| **Phishing signal anywhere** | Security: dapp-scan | The domain blacklist check runs over REST, so it also works in GitHub Actions |
+| **Costs in dollars** | Market: price | Fees on the status page, the approve page and `hashfront init` show OKB and USD |
+
+Keys stay server side (Vercel encrypted env, GitHub secrets, or a hidden prompt), never in the browser. Every OKX call has a fallback, so an OKX outage never stops detection or alerts.
+
 ## How it works
 
 ```mermaid

@@ -135,6 +135,18 @@ Durable facts and decisions for Hashfront. Update this file whenever something i
   - **How to verify a transaction:** OKLink shows the code next to the Txn hash, or use https://builder-code.vercel.app/checker.
 - **The DeWEB gateway can't be checked with plain HTTP:** tapekit.org returns the same 2,817-byte Service Worker bootstrap page for every path, and the Service Worker reads the files from chain. Check with `hashfront verify` or a real browser.
 
+### OKX Onchain OS API (Phase 8, Nov 20–21, 2026)
+- **Endpoint paths:** the docs don't list several of them. They come from OKX's open-source CLI `okx/onchainos-skills` (`cli/src/commands/{security,gateway,portfolio,market}.rs`).
+- **Live probe:** all 9 endpoints answered on chainIndex 196 with the team's keys (`scripts/okx-probe.ts`).
+- **The security scans need `"source"`** in the body, or they return `50036 PARAM_EXCEPTION`. We send `source: "hashfront"`.
+- **Native OKB:** an empty `tokenContractAddress` in the Balance API, and `0xeeee…eeee` in the Market API.
+- **Approvals:** `POST /api/v6/security/approval-mng` with `{nested:false, limit, addressList:[{chainIndex:"196", address}]}`. Items carry `approvalAddress`, `tags:"isEoa"`, `vulnerabilityFlag`, `remainAmtPrecise` and `status`.
+- **Broadcast:** `{signedTx, chainIndex, address}`. Simulate and gas-limit take `{chainIndex, fromAddress, toAddress, txAmount, extJson:{inputData}}`.
+- **Keys:**
+  - In Vercel: project hashfront-status as *sensitive* env vars (`OKX_API_KEY`, `OKX_SECRET_KEY`, `OKX_API_PASSPHRASE`), plus config `HASHFRONT_GATE` and `ALLOWED_SPENDERS`.
+  - Locally: `scripts/with-okx.ps1` (hidden prompts).
+- **Vercel CLI logins differ per shell:** the app's Terminal panel PowerShell did not share Claude's Bash Vercel login and needed its own `vercel login`.
+
 ## Open unknowns (tracked in IMPLEMENTATION_PLAN.md)
 1. Path A or path B for mainnet (user decision; path A needs BEM).
 2. Whether TapeKit refuses bytes that don't match the declared hash, and real OKX Wallet signing on a DeWEB page (step 3).
