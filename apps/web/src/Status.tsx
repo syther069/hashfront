@@ -44,6 +44,7 @@ export function Status({ target }: { target: Target }) {
       {alertOpen && <Affected target={target} alertOpen />}
       <Overview s={s} target={target} v1={table.ok && table.v1} />
       <Releases s={s} target={target} />
+      <WatcherHealth s={s} />
       {!alertOpen && <Affected target={target} alertOpen={false} />}
       <Policy s={s} table={table} />
       <Badge target={target} />
@@ -76,6 +77,24 @@ function Suspects({ target }: { target: Target }) {
           </li>
         ))}
       </ul>
+    </section>
+  );
+}
+
+const METRICS_URL = "https://github.com/syther069/hashfront/blob/main/docs/metrics.md";
+
+/** What the chain can say about the watcher, and where the measured numbers live. It is not a live heartbeat. */
+function WatcherHealth({ s }: { s: Snapshot }) {
+  const a = s.lastAlert;
+  const last = a.kind === 0 ? "The watcher has not reported anything on chain yet." : `Last onchain report: ${ALERT_KIND[a.kind] ?? "alert"}, ${ago(s.now - a.at)} ago.`;
+  return (
+    <section className="card" data-testid="watcher-health">
+      <h2>Watcher health</h2>
+      <p className="muted">
+        {last} The chain only shows reports, not whether the watcher is running right now. Measured uptime, check and OKX API latency, time to alert and
+        false alarms from real runs are in the{" "}
+        <a href={METRICS_URL} target="_blank" rel="noopener noreferrer">metrics report</a>.
+      </p>
     </section>
   );
 }

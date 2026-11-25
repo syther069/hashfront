@@ -146,6 +146,7 @@ function check(status: Status): CheckResult {
     verdict: { status, liveRelease: 1n, observed: H(status === "MATCH" ? 1 : 2), diffs: [], allowed: [], stripped: [], hints: [] } as unknown as CheckResult["verdict"],
     checkedAt: new Date((clock += 30_000)),
     durationMs: 5,
+    rpcMs: 2,
     missingManifests: [],
     rejectedManifests: [],
   };

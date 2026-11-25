@@ -395,7 +395,8 @@ Restructure the top of `README.md` in this order (keep the existing sections bel
 | A1 CT monitor | done on a branch, PR to open; fixtures and `example.org` only (no own domain) | `feat/a1-ct-monitor` |
 | A3 vantage probe | **CUT** | |
 | A2 DNSSEC + RDAP | done on a branch (stacked on A1), PR to open; fixtures and `example.org` only | `feat/a2-dnssec-rdap` |
-| D1, E2, E3 | not started | |
+| D1 metrics | code done on a branch (stacked on A2), PR to open; **the 24 h run on the PC is still to do** (needs the user's OKX keys and the PC on) | `feat/d1-metrics` |
+| E2, E3 | not started | |
 | C2 guardian | optional stretch, fork only | |
 
 ## 4. Order and time budget (today is Nov 25)

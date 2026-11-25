@@ -28,6 +28,8 @@ export interface CheckResult {
   /** addresses in the served files that no approved file contains (only on MISMATCH; best-effort triage) */
   suspects?: string[];
   suspectsError?: string;
+  /** time the chain reads took (gate, releases): the RPC part of the check */
+  rpcMs: number;
 }
 
 /** Approved index.html bytes per live release id; releases never change once live. */
@@ -36,7 +38,9 @@ const indexCache = new Map<string, Uint8Array>();
 export async function checkOnce(ctx: Context, cfg: WatchConfig): Promise<CheckResult> {
   const started = Date.now();
   const store = await loadManifests(cfg.manifestsDir);
+  const rpcStarted = Date.now();
   const snap = await readSnapshot(ctx, store);
+  const rpcMs = Date.now() - rpcStarted;
 
   // Fetch everything any candidate lists in one pass, so one check is one consistent view of the host.
   const paths = [snap.live, ...snap.others].flatMap((r) => r.files.map((f) => f.path));
@@ -86,6 +90,7 @@ export async function checkOnce(ctx: Context, cfg: WatchConfig): Promise<CheckRe
     verdict,
     checkedAt: new Date(started),
     durationMs: Date.now() - started,
+    rpcMs,
     missingManifests: snap.missingManifests,
     rejectedManifests: store.rejected,
     ...(signals ? { signals } : {}),

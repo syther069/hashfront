@@ -448,3 +448,15 @@ test("revoke all, user rejects the batch: nothing is revoked and the wallet is n
   assert.equal(methods.filter((m) => m === "eth_sendTransaction").length, 0);
   await page.close();
 });
+
+test("the status page has a watcher health card with the metrics report link", async () => {
+  const q = `?gate=${h.gate}&network=local&rpc=${encodeURIComponent(h.rpc)}`;
+  const page = await browser.newPage();
+  await page.goto(`${base}index.html${q}#/`);
+  const card = page.getByTestId("watcher-health");
+  await card.waitFor();
+  assert.match(await card.innerText(), /Last onchain report: /);
+  assert.match(await card.innerText(), /not whether the watcher is running right now/);
+  assert.equal(await card.getByRole("link", { name: "metrics report" }).getAttribute("href"), "https://github.com/syther069/hashfront/blob/main/docs/metrics.md");
+  await page.close();
+});

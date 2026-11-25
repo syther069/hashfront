@@ -11,7 +11,7 @@ import { createDispatcher, validateName, type Delivery, type Dispatcher } from "
 import { sendTelegram, type TelegramConfig } from "./alerts/telegram.ts";
 import { resolveRecipients } from "./alerts/tapesend.ts";
 import { keyFromAccount } from "@hashfront/cli/keystore";
-import { credentialsFromEnv, OkxClient } from "@hashfront/okx/client";
+import { credentialsFromEnv, drainOkxMetrics, OkxClient } from "@hashfront/okx/client";
 import { formatEther } from "viem";
 import type { GasStatus } from "./alerts/gas.ts";
 import { checkOnce, watchLoop, type CheckResult, type WatchConfig } from "./watch.ts";
@@ -171,6 +171,16 @@ function signalsJson(s: SignalsReport) {
   };
 }
 
+/**
+ * Timings of one check, for `scripts/metrics-report.ts`: the whole check, the chain reads, and every OKX call made
+ * since the previous line (the slowest per endpoint, retries included).
+ */
+function perfOf(r: CheckResult) {
+  const okxMs: Record<string, number> = {};
+  for (const c of drainOkxMetrics()) okxMs[c.path] = Math.max(okxMs[c.path] ?? 0, c.ms);
+  return { checkMs: r.durationMs, rpcMs: r.rpcMs, okxMs };
+}
+
 /** One JSON line per check, for logs and for the alert layer (step 9). */
 function report(r: CheckResult, alerts: Delivery[] | { error: string } = [], gas?: GasStatus): string {
   const v = r.verdict;
@@ -192,6 +202,7 @@ function report(r: CheckResult, alerts: Delivery[] | { error: string } = [], gas
     ...(Array.isArray(alerts) ? (alerts.length ? { alerts } : {}) : { alertError: alerts.error }),
     ...(gas ? { reporterGas: { okb: formatEther(gas.balanceWei), low: gas.low, via: gas.via } } : {}),
     ms: r.durationMs,
+    perf: perfOf(r),
   });
 }
 
