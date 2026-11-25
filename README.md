@@ -4,7 +4,49 @@
 
 **When a DeFi frontend gets hijacked, Hashfront catches it in under a minute, warns users on Telegram and on chain, and keeps a copy of the approved app that the attacker cannot touch.**
 
+> **Success metric:** hijack to onchain alert in **under 60 s** (measured on mainnet: 51 s, see the [rehearsal](docs/evidence-hijack-rehearsal.md)) · false alarms: **0 per day** (24 h run pending, see [`docs/metrics.md`](docs/metrics.md) when D1 lands) · detection still works **with OKX down**.
+
+Live: [status page](https://hashfront-status.vercel.app) · [verified copy](https://4-2-409.tapekit.org/) · [protected demo site](https://hashswap-demo.vercel.app)
+
 Every frontend release is approved by maintainers through a **TapeOut policy circuit on X Layer**. It is stored byte for byte on **DeWEB**, and a watcher compares the normal website with that onchain release around the clock. When the two differ, alerts go out over **TapeSend** (on chain) and Telegram, and users open the verified copy instead.
+
+## The problem, with numbers
+
+An attacker doesn't need to touch the contracts. They take over the domain at the registrar or DNS host and serve an identical-looking app that asks the wallet for an unlimited approval to their address.
+
+| When | What happened | Loss |
+|---|---|---|
+| Oct 30-31, 2026 | Name.com registrar hijack: 12 DeFi sites taken over at once | about $138K |
+| Nov 2025 | Aerodrome and Velodrome domains hijacked; DNSSEC was stripped first | $700K+ |
+| Feb 2026 | 5 protocols hijacked in one week (reported by Blockaid) | not totalled |
+| ongoing | eth.limo / EasyDNS-style DNS and registrar takeovers | n/a |
+
+Sources: The Block, Crypto Briefing and Blockaid reports on these incidents. <!-- TODO(D2 final): paste the exact article URLs and re-check each figure before submission. -->
+
+Users can't see the difference, and teams usually find out from their users.
+
+## Who uses it, and who pays
+
+- **Users:** a DeFi protocol team (a named persona comes from the D3 interviews) and the people who use its frontend.
+- **Payer:** the protocol. X Layer protocols get a free tier with a self-hosted watcher. A hosted watcher plus a second vantage point plus the guardian pause is the paid plan (for example $99-299 per month).
+- The reasoning, with loss per incident against price, is in [`docs/business.md`](docs/business.md).
+
+## Alternatives vs Hashfront
+
+| | Detects a hijack | Warns users | Gives a safe copy | Gap |
+|---|---|---|---|---|
+| **Blockaid** | at the wallet, per transaction | in the wallet | no | after the fact; the user must already use a protected wallet |
+| **DNSspy, CertSpotter, Cloudflare notifications** | DNS or certificate changes only | the site owner only | no | no content check, no users, no safe copy |
+| **Autark** (multisig, ENS/IPFS releases) | no watcher | no | yes (IPFS) | nobody compares the live site with the release |
+| **IPFS CID verification** | only if the user checks | no | yes | users never check |
+| **Hashfront** | content, DNS, certificate, phishing scan | Telegram and onchain TapeSend | yes, from chain (DeWEB) | detect, warn and recover in one flow |
+
+## Why a TapeOut circuit, not just a Safe
+
+- The release policy is **public logic anyone can evaluate**: the status page reads the netlist and checks all 32 rows in the browser against the gate.
+- It is **composable**: freeze, timelock and the 3-of-3 hotfix path are inputs to one small circuit, not scattered contract flags.
+- It **lives with the site container on DeWEB**, so whoever may change the verified copy is the same thing the circuit decides.
+- A multisig answers "who signed". The circuit answers "is this release allowed under the policy", and everyone can check that without trusting us.
 
 ## Live on X Layer mainnet
 
@@ -17,11 +59,9 @@ Every frontend release is approved by maintainers through a **TapeOut policy cir
 | **Policy circuit** | #4 on TapeOut processor #409 (`0x39E4…84D0`), held by the gate |
 | **Site container** | `0x5D96417d287f6F10979b63b80504926DE4CE92bA`, name `4.2.409.tape` |
 
-## Why
+## What Hashfront does about it
 
-Domain hijacks are one of the cheapest ways to drain DeFi users. The attacker doesn't touch the contracts. They take over the domain at the registrar or DNS host, then serve a copy of the app that looks identical but asks the wallet for an unlimited approval to their address. In the Oct 31, 2026 Name.com hijacks, 12 sites were taken over at once through their registrar. Users can't see the difference, and teams usually find out from their users.
-
-Hashfront closes the three gaps:
+Hashfront closes three gaps:
 
 1. **Know:** a watcher compares every file the normal site serves with the release approved on chain. It also watches DNS, the TLS certificate and the OnchainOS phishing scan, so a registrar hijack is caught even if the attacker shows the watcher the real page.
 2. **Warn:** one alert per incident on Telegram and as an onchain TapeSend message. The text is fixed in the contract and has no links, so a stolen alert key can't send anyone to a phishing page. The status page and the embeddable badge turn red.
