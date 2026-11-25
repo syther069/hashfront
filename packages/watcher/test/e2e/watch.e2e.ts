@@ -129,3 +129,16 @@ test("MISMATCH within one interval after one byte of the bundle changes", async 
   console.log(`  detected ${detectedAfter} ms after the byte changed (interval ${intervalMs} ms)`);
   assert.ok(detectedAfter <= intervalMs + (last?.durationMs ?? 0) + 500, `took ${detectedAfter} ms`);
 });
+
+test("a hijacked build names the attacker address that is only in the served files", async () => {
+  const build = spawnSync(process.platform === "win32" ? "npm.cmd" : "npm", ["run", "build:hijack"], { cwd: demoDir, encoding: "utf8", shell: process.platform === "win32" });
+  assert.equal(build.status, 0, build.stdout + build.stderr);
+  const hijackDir = path.join(demoDir, "dist-hijack");
+  files.clear();
+  for (const rel of await listFiles(hijackDir)) files.set(rel, await readFile(path.join(hijackDir, rel)));
+
+  const r = await checkOnce(ctx(), cfg());
+  assert.equal(r.verdict.status, "MISMATCH");
+  // checksummed form of VITE_SPENDER in apps/demo-dapp/.env.hijack
+  assert.deepEqual(r.suspects, ["0xBAd0000000000000000000000000000000000Bad"], r.suspectsError);
+});

@@ -30,6 +30,18 @@ export function useApprovals(address: string | undefined) {
   });
 }
 
+export interface SuspectsInfo {
+  status: "match" | "mismatch" | "other";
+  liveRelease: number;
+  suspects: string[];
+  checkedAt: string;
+}
+
+/** Addresses seen only in the hijacked site; polled only while an alert is open, and absent where /api is not deployed. */
+export function useSuspects(enabled: boolean) {
+  return useQuery({ queryKey: ["suspects"], queryFn: () => getJson<SuspectsInfo>("/api/suspects"), enabled, retry: false, refetchInterval: 30_000 });
+}
+
 export interface ScanResult {
   safe: boolean;
   action: string;

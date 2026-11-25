@@ -12,6 +12,7 @@ import { useApprovals, useOkbPrice } from "./okx.ts";
 import { dataSuffix } from "./wallet.ts";
 
 const RISK_LABEL: Record<Approval["risk"], string> = {
+  attacker: "attacker address",
   flagged: "flagged by OKX",
   eoa: "plain wallet",
   unknown: "unknown contract",

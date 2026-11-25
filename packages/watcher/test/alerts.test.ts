@@ -191,3 +191,25 @@ test("dispatcher: one Telegram message per incident, failed sends retried, state
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test("attacker addresses go to the team once per incident, as plain addresses, never to the community", () => {
+  const A = ["0xBAd0000000000000000000000000000000000Bad", "0x1111111111111111111111111111111111111111"];
+  const s0 = emptyState();
+  let s = s0;
+  const team: { kind: string; detail?: string }[] = [];
+  for (const o of [obs("MISMATCH", { suspects: A }), obs("MISMATCH", { suspects: A }), obs("MISMATCH", { suspects: A })]) {
+    const r = step(s, o, CFG);
+    s = r.state;
+    team.push(...r.created.filter((m) => m.audience === "team").map((m) => ({ kind: String(m.kind), ...(m.detail ? { detail: m.detail } : {}) })));
+  }
+  assert.deepEqual(team, [{ kind: "attacker-addresses", detail: A.join("\n") }]);
+  // no suspects (extraction found nothing), or content that matches: no notice
+  assert.deepEqual(run([obs("MISMATCH"), obs("MISMATCH")]).kinds, ["community:1"]);
+  assert.deepEqual(run([obs("MATCH", { suspects: A })]).kinds, []);
+});
+
+test("at most 5 addresses are listed", () => {
+  const many = Array.from({ length: 8 }, (_, i) => `0x${String(i + 1).repeat(40)}`);
+  const r = step(emptyState(), obs("MISMATCH", { suspects: many }), CFG);
+  assert.equal(r.created.find((m) => m.kind === "attacker-addresses")?.detail?.split("\n").length, 5);
+});

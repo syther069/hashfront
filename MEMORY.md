@@ -161,3 +161,4 @@ Durable facts and decisions for Hashfront. Update this file whenever something i
 - **Burner wallets:** Foundry keystores `hashfront-deployer`, `hashfront-m1`, `-m2`, `-m3` (created Nov 19). Their public addresses are in `wallet-addresses.txt` (gitignored); all balances were 0 on Nov 19.
 - **X Layer testnet (1952):** has no TapeOut opener, SiteRegistry or TapeFun deployed (checked Nov 19), so fork mainnet instead.
 - **Foundry 1.7.1:** `forge-std` is vendored in `contracts/lib/forge-std`, without git metadata.
+- Nov 25: hashfront-status has Vercel env `HASHFRONT_SITE=https://hashswap-demo.vercel.app/` (non-secret, production). `/api/suspects` returns match/[] on the live v2 site. The deploy dir `deploy/hashfront-status` is a copy of `apps/web/dist` built with `VITE_GATE=0xAF96...80F6 VITE_NETWORK=xlayer`.

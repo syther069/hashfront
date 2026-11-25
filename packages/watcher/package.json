@@ -12,6 +12,13 @@
     "test": "node --test \"test/**/*.test.ts\"",
     "test:e2e": "node --test \"test/e2e/*.e2e.ts\""
   },
+  "exports": {
+    "./triage": "./src/triage.ts",
+    "./suspects": "./src/suspects.ts",
+    "./compare": "./src/compare.ts",
+    "./fetchSite": "./src/fetchSite.ts",
+    "./package.json": "./package.json"
+  },
   "dependencies": {
     "@hashfront/cli": "0.1.0",
     "@hashfront/okx": "0.1.0",

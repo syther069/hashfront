@@ -163,6 +163,8 @@ function report(r: CheckResult, alerts: Delivery[] | { error: string } = [], gas
     ...(r.missingManifests.length ? { missingManifests: r.missingManifests.map((id) => `v${id}`) } : {}),
     ...(r.rejectedManifests.length ? { rejectedManifests: r.rejectedManifests } : {}),
     ...(r.signals ? { signals: signalsJson(r.signals) } : {}),
+    ...(r.suspects ? { suspects: r.suspects } : {}),
+    ...(r.suspectsError ? { suspectsError: r.suspectsError } : {}),
     ...(Array.isArray(alerts) ? (alerts.length ? { alerts } : {}) : { alertError: alerts.error }),
     ...(gas ? { reporterGas: { okb: formatEther(gas.balanceWei), low: gas.low, via: gas.via } } : {}),
     ms: r.durationMs,

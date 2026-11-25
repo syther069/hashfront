@@ -4,10 +4,13 @@ import { getAddress, isAddress, toFunctionSelector, type Hex } from "viem";
 import { credentialsFromEnv, OkxClient, OkxError } from "@hashfront/okx/client";
 import { approvals, NATIVE_PRICE_ADDRESS, prices, txScanEvm } from "@hashfront/okx/endpoints";
 import { classifyPages, parseAllowed } from "@hashfront/okx/risk";
+import type { SuspectsReport } from "./_site.ts";
 
 export interface Deps {
   okx: OkxClient | undefined;
   env: Record<string, string | undefined>;
+  /** attacker addresses from the live site diff; absent when the site is not configured */
+  suspects?: (() => Promise<SuspectsReport>) | undefined;
 }
 
 export function depsFromEnv(env: Record<string, string | undefined> = process.env): Deps {
@@ -31,10 +34,23 @@ export async function getApprovals(req: Request, deps: Deps): Promise<Response> 
   if (!deps.okx) return unavailable();
   try {
     const pages = await approvals(deps.okx, getAddress(address));
-    const list = classifyPages(pages, parseAllowed(deps.env.ALLOWED_SPENDERS));
+    // A failed or slow suspects lookup must never hide the user's approvals: they are ranked without it.
+    const found = await deps.suspects?.().then((r) => r.suspects, () => []);
+    const list = classifyPages(pages, parseAllowed(deps.env.ALLOWED_SPENDERS), new Set((found ?? []).map((a) => a.toLowerCase())));
     return json(200, { address: getAddress(address), chain: "X Layer", source: "OKX Onchain OS security API", approvals: list }, "public, s-maxage=30, stale-while-revalidate=60");
   } catch (err) {
     return unavailable(err);
+  }
+}
+
+/** GET /api/suspects: addresses found only in the served site, while it differs from the live release. */
+export async function getSuspects(_req: Request, load: (() => Promise<SuspectsReport>) | undefined): Promise<Response> {
+  if (!load) return json(503, { error: "site monitoring is not configured on this host" });
+  try {
+    const r = await load();
+    return json(200, { ...r, source: "approved release on X Layer vs the live site" }, "public, s-maxage=30, stale-while-revalidate=60");
+  } catch {
+    return json(503, { error: "could not compare the site with the live release right now" });
   }
 }
 

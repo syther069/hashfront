@@ -16,6 +16,7 @@
     "@hashfront/circuits": "0.1.0",
     "@hashfront/cli": "0.1.0",
     "@hashfront/okx": "0.1.0",
+    "@hashfront/watcher": "0.1.0",
     "@tanstack/react-query": "5.106.0",
     "ox": "1.8.13",
     "react": "19.3.1",

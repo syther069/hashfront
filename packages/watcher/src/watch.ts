@@ -3,6 +3,7 @@ import type { Context } from "@hashfront/cli/context";
 import { readReleaseFile, readSnapshot } from "./chain.ts";
 import { compare, sha256, type AllowList, type Verdict } from "./compare.ts";
 import { fetchServed, type FetchOptions } from "./fetchSite.ts";
+import { findSuspects } from "./triage.ts";
 import { loadManifests } from "./manifests.ts";
 import { checkSignals, type SignalConfig, type SignalsReport } from "./signals/index.ts";
 import { errorText } from "./signals/util.ts";
@@ -24,6 +25,9 @@ export interface CheckResult {
   missingManifests: bigint[];
   rejectedManifests: { file: string; reason: string }[];
   signals?: SignalsReport;
+  /** addresses in the served files that no approved file contains (only on MISMATCH; best-effort triage) */
+  suspects?: string[];
+  suspectsError?: string;
 }
 
 /** Approved index.html bytes per live release id; releases never change once live. */
@@ -69,6 +73,15 @@ export async function checkOnce(ctx: Context, cfg: WatchConfig): Promise<CheckRe
       (err: unknown): SignalsReport => ({ level: "unknown", baseline: "not-recorded", baselineNote: `signals failed: ${errorText(err)}` }),
     );
   }
+  let suspects: string[] | undefined;
+  let suspectsError: string | undefined;
+  if (verdict.status === "MISMATCH") {
+    try {
+      suspects = await findSuspects({ ctx, info: snap.info, live: snap.live, served, diffs: verdict.diffs, site: cfg.site, ...(cfg.fetch ? { fetch: cfg.fetch } : {}) });
+    } catch (err) {
+      suspectsError = errorText(err);
+    }
+  }
   return {
     verdict,
     checkedAt: new Date(started),
@@ -76,6 +89,8 @@ export async function checkOnce(ctx: Context, cfg: WatchConfig): Promise<CheckRe
     missingManifests: snap.missingManifests,
     rejectedManifests: store.rejected,
     ...(signals ? { signals } : {}),
+    ...(suspects ? { suspects } : {}),
+    ...(suspectsError ? { suspectsError } : {}),
   };
 }
 

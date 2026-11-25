@@ -7,7 +7,7 @@ import { dewebUrl, linkFor, publicClientFor, type Target } from "./config.ts";
 import { ago, ALERT_KIND, approvers, contextFor, readSnapshot, short, type ReleaseRow, type Snapshot } from "./chain.ts";
 import { inputNames, isPolicyV1, truthTable, type Row } from "./truthTable.ts";
 import { Affected } from "./Affected.tsx";
-import { useOkbPrice } from "./okx.ts";
+import { useOkbPrice, useSuspects } from "./okx.ts";
 
 type Table = { ok: true; rows: Row[]; v1: boolean } | { ok: false; error: string };
 
@@ -40,6 +40,7 @@ export function Status({ target }: { target: Target }) {
   return (
     <>
       <AlertBanner s={s} />
+      {alertOpen && <Suspects target={target} />}
       {alertOpen && <Affected target={target} alertOpen />}
       <Overview s={s} target={target} v1={table.ok && table.v1} />
       <Releases s={s} target={target} />
@@ -47,6 +48,35 @@ export function Status({ target }: { target: Target }) {
       <Policy s={s} table={table} />
       <Badge target={target} />
     </>
+  );
+}
+
+/** Addresses that appear only in the hijacked site. Triage, not proof: the card says so. */
+function Suspects({ target }: { target: Target }) {
+  const q = useSuspects(true);
+  const [copied, setCopied] = useState("");
+  const explorer = target.chain.blockExplorers?.default.url;
+  const list = q.data?.suspects ?? [];
+  if (!q.isSuccess || q.data.status !== "mismatch" || list.length === 0) return null;
+  const copy = (a: string) => {
+    void navigator.clipboard?.writeText(a).then(() => setCopied(a), () => undefined);
+  };
+  return (
+    <section className="card suspects" data-testid="suspects">
+      <h2>Suspected attacker addresses</h2>
+      <p className="muted">
+        Found in the files the website serves now, and in none of the approved release's files. This is a best-effort comparison, so an address the attacker
+        hid or loads at runtime is not listed. Never approve or send anything to these.
+      </p>
+      <ul className="plain">
+        {list.map((a) => (
+          <li key={a} className="mono" data-testid="suspect">
+            {a} {explorer && <a href={`${explorer}/address/${a}`} target="_blank" rel="noopener noreferrer">OKLink</a>}{" "}
+            <button type="button" onClick={() => copy(a)}>{copied === a ? "Copied" : "Copy"}</button>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

@@ -273,3 +273,46 @@ test("approve page: an OKX scan warning blocks Approve until the maintainer ackn
     await page.close();
   }
 });
+
+test("during an alert the status page lists the suspected attacker addresses and ranks that approval first", async () => {
+  const q = `?gate=${h.gate}&network=local&rpc=${encodeURIComponent(h.rpc)}`;
+  const ATTACKER = "0xBAd0000000000000000000000000000000000Bad";
+  const page = await browser.newPage();
+  await page.route("**/api/**", async (route) => {
+    const url = new URL(route.request().url());
+    const json = (body: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
+    if (url.pathname === "/api/price") return json({ okbUsd: 75.91, time: Date.now(), source: "OKX Onchain OS Market API" });
+    if (url.pathname === "/api/suspects") return json({ status: "mismatch", liveRelease: 1, suspects: [ATTACKER], checkedAt: new Date().toISOString() });
+    if (url.pathname === "/api/approvals") {
+      const attacker = { ...approvalsBody.approvals[0], risk: "attacker", reasons: ["seen only in the hijacked site", "unlimited amount"] };
+      return json({ ...approvalsBody, approvals: [approvalsBody.approvals[1], attacker, approvalsBody.approvals[0]].sort((a, b) => (a?.risk === "attacker" ? -1 : b?.risk === "attacker" ? 1 : 0)) });
+    }
+    return route.fallback();
+  });
+  await page.goto(`${base}index.html${q}#/`);
+  await page.getByTestId("suspects").waitFor();
+  assert.match(await page.getByTestId("suspect").first().innerText(), /0xBAd0000000000000000000000000000000000Bad/);
+  await page.getByTestId("affected-address").fill(USER);
+  await page.getByTestId("affected-table").waitFor();
+  const first = page.locator("[data-testid^=approval-]").first();
+  assert.equal(await first.getAttribute("data-testid"), "approval-attacker");
+  assert.match(await first.innerText(), /attacker address/);
+  await page.close();
+});
+
+test("when the site matches, no suspects card is shown", async () => {
+  const q = `?gate=${h.gate}&network=local&rpc=${encodeURIComponent(h.rpc)}`;
+  const page = await browser.newPage();
+  await page.route("**/api/**", async (route) => {
+    const url = new URL(route.request().url());
+    const json = (body: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
+    if (url.pathname === "/api/price") return json({ okbUsd: 75.91, time: Date.now(), source: "OKX Onchain OS Market API" });
+    if (url.pathname === "/api/suspects") return json({ status: "match", liveRelease: 1, suspects: [], checkedAt: new Date().toISOString() });
+    return route.fallback();
+  });
+  await page.goto(`${base}index.html${q}#/`);
+  await page.getByTestId("alert-state").waitFor();
+  await page.waitForTimeout(1500);
+  assert.equal(await page.getByTestId("suspects").count(), 0);
+  await page.close();
+});

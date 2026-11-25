@@ -6,6 +6,35 @@
 
 ---
 
+## Strategy after the honest review (Nov 25). Read this before the tasks.
+
+The tech is already strong. Points are lost in five places:
+
+| Gap | Why it costs points | Fix |
+|---|---|---|
+| **Reaching users** | Users don't check status pages. Blockaid wins because it lives in the wallet. | **U1** |
+| **Demo ≠ pitch** | The pitch is a DNS/registrar hijack, but the demo redeploys `*.vercel.app` (a hosting/CI compromise). CT and RDAP show nothing on vercel.app. | **Own domain (D-1, required)** |
+| **No users** | Zero interviews and no "I would pay". That hurts Problem and Impact (30%). | **D3, start on day 1** |
+| **Scope creep** | 11 features in 12 days dilutes the story and won't fit a 3-minute demo. | **Cuts below** |
+| **Overclaiming** | "First ever" claims and "catches every drainer" are easy for a judge to break. | **Honest limitations section (D2)** |
+
+**One story only.** Every task, the README and the demo serve this sentence:
+
+> "A registrar hijack on our real domain → onchain alert in under 60 s through OKX Gateway → the attacker's address named → users warned in their browser before they sign → one-click revoke → verified copy on DeWEB stays safe."
+
+**Cuts:**
+- **A3 vantage probe:** cut. A single Vercel region is a weak second vantage, and cloaking is hard to demo.
+- **C2 guardian auto-pause:** demoted to an optional stretch, **fork only**, never on mainnet. One false positive pausing a protocol is a liability, and judges may see it as risky.
+
+**Moved earlier:** buying the domain, D3 interviews and the D4 demo script. They carry the most rubric weight and take the longest elapsed time.
+
+**Pitch honestly:**
+- **Content-integrity monitoring is not new.** The innovation is the *combination*: an onchain release policy, a verified fallback copy, an onchain alert, attacker addresses and a user-side guard.
+- **Address extraction is best-effort triage.** Obfuscated or runtime-fetched addresses evade it.
+- **The guard only protects users who installed it.** That is why it is also a reference for wallets to consume the same feed.
+
+---
+
 ## 0. Ground rules (they override anything else)
 
 1. **Commits are authored by `syther069 <191589705+syther069@users.noreply.github.com>` only.** This is already set in the repo's git config. **No `Co-Authored-By: Claude`, no "Generated with Claude Code"**, in commits, PRs or files. Check before every push: `git log --format='%an <%ae>%n%B' -5 | grep -i claude` must print nothing.
@@ -115,9 +144,59 @@ npm run test:e2e -w apps/web                      # Playwright on installed Edge
 
 ## 3. Tasks
 
-Ordered by impact on the rubric (Technical 25 · Innovation 20 · Problem 15 · Impact 15 · Demo 15 · UX 10). Each task has an ID, a time estimate, files and acceptance criteria. Do them top to bottom. ⛓ marks a mainnet step, which needs a "go".
+Rubric weights: Technical 25 · Innovation 20 · Problem 15 · Impact 15 · Demo 15 · UX 10. Each task has an ID, a time estimate, files and acceptance criteria. **Follow the order in section 4, not the order of this section.** ⛓ marks a mainnet step, which needs a "go".
 
-### Track A: catch the hijack earlier (detection gaps)
+### Track U: reach the user before they sign (fixes the biggest gap)
+
+**U0: own domain** (user: 15 min; Claude: 1 h) · branch `chore/u0-domain`. **Required, day 1.**
+- **User:**
+  - buys a cheap domain (about $2–10) at a registrar that supports DNSSEC and registrar lock
+  - turns on DNSSEC and the transfer lock
+  - Claude asks before anyone spends money or creates an account.
+- **Claude:**
+  - add it as a custom domain on the `hashswap-demo` Vercel project (`vercel domains add`)
+  - add it to the watcher `--site`, the status page config and `HASHFRONT_SITE` in Vercel env
+  - record it in `MEMORY.md`
+- **Real hijack demo on our own domain:**
+  - change the DNS at the registrar to point at the `hashswap-hijack` deployment (a second Vercel project with that domain added), turn DNSSEC off, then restore
+  - this shows the real attack: DNS changes, CT/RDAP signals fire, then content mismatches
+  - document the exact steps in `docs/RUNBOOK-domain-hijack.md`
+- **Done when:** the domain serves v2 over HTTPS, and the watcher reports MATCH on it.
+
+**U1: Hashfront Guard browser extension** (6 h) · branch `feat/u1-guard`
+- **Why:** the alert has to reach the user *on the hijacked page, before they sign*. This answers the judge's question "who actually stops the user?".
+  - It works in Chrome, Edge and Brave (Manifest V3).
+  - The same feed is what a wallet such as OKX Wallet would consume, so pitch it as a reference integration.
+- **New backend: `GET /api/status`**
+  - New handler `getStatus` in `apps/web/api/_handlers.ts`, plus `apps/web/api/status.ts`, added to `vite.api.config.ts`.
+  - Returns `{ site, status: "ok"|"alert"|"unknown", liveRelease, rootHash, assets: {path: sha256}, suspects: string[], checkedAt }`.
+  - Reuse the chain-read logic that `Status.tsx` / `config.ts` use for the live release and the open alert. Read those two files first and move the shared pure part into `apps/web/src/chain.ts` if needed.
+  - Cache 20 s. GET only. The site is fixed from env, so there is no user input.
+- **Extension: new folder `apps/guard/`, plain JS with no build step and no new dependencies.**
+  - **`manifest.json`:**
+    - MV3
+    - `host_permissions` for the watched domain(s) and the status API
+    - a `content_scripts` entry in the `MAIN` world at `document_start` (`guard-main.js`), and one in the isolated world (`guard.js`)
+  - **`guard.js` (isolated world):**
+    - asks the background script (`bg.js`) for the status
+    - also computes its own sha256 of the loaded `index.html` (`fetch(location.href, {cache:"no-store"})` + `crypto.subtle`) and compares it with `rootHash`, so it checks independently and doesn't only trust the watcher
+    - on `alert`, or a hash mismatch: shows a full-page red overlay ("This site does not match its onchain-approved release. Use the verified copy: 4-2-409.tapekit.org"), lists the suspects, and tells `guard-main.js` through `postMessage`
+  - **`guard-main.js` (MAIN world):**
+    - wraps `window.ethereum.request` (and EIP-6963 providers)
+    - while the alert is on, it throws `4001 User Rejected` for `eth_sendTransaction`, `eth_signTypedData*`, `personal_sign` and `wallet_sendCalls`, unless the user clicks "I understand the risk" on the overlay
+  - **`bg.js`:** fetches `/api/status`, caches 20 s, and sets the badge text to OK or ALERT.
+  - **`popup.html`:** status, live release, link to the status page.
+- **Honest limitation, written in the README:**
+  - it protects only users with the extension
+  - a page script could race the provider wrap, so it runs at `document_start`
+  - wallets integrating the feed is the real scale path
+- **Tests:**
+  - unit tests for the hash compare and the request filter (plain functions in `apps/guard/lib.js`, tested with `node --test`)
+  - Playwright: launch Edge with `--load-extension` (persistent context), open the local hijack build, assert the overlay appears and that `eth_sendTransaction` from the page rejects with 4001
+  - the same check on the good build: no overlay
+- **Packaging:** `npm run pack:guard` zips `apps/guard` into `dist/hashfront-guard.zip` and attaches it to the GitHub Release. No Chrome Web Store submission (that needs an account; ask first).
+
+### Track A: catch the hijack earlier (detection gaps; only meaningful on the U0 domain)
 
 **A1: Certificate Transparency monitor** (4 h) · branch `feat/a1-ct-monitor`
 - **Why:** attackers issue a TLS certificate for the hijacked domain before they serve the drainer. CT logs show it within minutes, often before the site changes. No Web3 tool does this.
@@ -132,7 +211,7 @@ Ordered by impact on the rubric (Technical 25 · Innovation 20 · Problem 15 · 
 - **Wire it in:**
   - `checkSignals` runs it every 10 min (like the scan cache) when `--signals` includes `ct`. Add `ct` to the default list.
   - Add a field `ctAlert: boolean` to `Observation`. An alert-level CT finding opens the **DNS incident** (`dnsAlert || ctAlert`), since the onchain text already says the domain changed. Also add a team notice `new-certificate` with the issuer and hosts.
-- **`*.vercel.app`:** Vercel's wildcard certificate covers our demo host, so CT can't show a hijack there. Test against recorded responses (fixtures from `example.org`). The live demo uses the user's own domain if they buy one (decision D-1).
+- **Domain:** Vercel's wildcard certificate covers `*.vercel.app`, so CT can't show a hijack there. Unit tests use recorded fixtures (`example.org`). The live run and the demo use the **U0 domain**: moving it to the hijack project issues a new certificate, which CT shows.
 - **Tests:** fixtures for a new issuer → alert, a renewal → info, an API down → unknown with no notice; JSON line shows `ct`.
 
 **A2: DNSSEC + registrar lock (RDAP) signal** (3 h) · branch `feat/a2-dnssec-rdap`
@@ -147,20 +226,18 @@ Ordered by impact on the rubric (Technical 25 · Innovation 20 · Problem 15 · 
 - **Wire it in:** same as A1 (`--signals` gets `registry`), and `Observation.registryAlert` feeds the DNS incident.
 - **Tests:** RDAP and DoH fixtures (`example.org` recorded), the four transitions, and graceful failure.
 
-**A3: second vantage point (anti-cloaking)** (3 h) · branch `feat/a3-vantage`
-- **Why:** a hijacker can serve the real page to the watcher's IP. A second fetch from Vercel's network catches that cloaking.
-- **New handler `getProbe`** in `apps/web/api/_handlers.ts`, plus `apps/web/api/probe.ts`:
-  - `GET /api/probe` fetches **only** `HASHFRONT_SITE` (new Vercel env var; no user input, so this is not an open proxy).
-  - It returns `{ root: sha256, assets: {path: sha256}, finalUrl, at }` for `index.html` and the assets it references (reuse the logic of `urlFor` from `packages/watcher/src/fetchSite.ts`; copy the small helper into the handler module if importing it would pull in Node-only code).
-  - Cache 20 s. Add it to `vite.api.config.ts` inputs.
-- **Watcher:** new optional flag `--vantage <url>` (for example `https://hashfront-status.vercel.app/api/probe`). In `checkOnce`, after `compare`, fetch the vantage result. If the local root hash ≠ the remote root hash and one of them is MISMATCH → `verdict.hints` "cloaking: different content from two networks", and the status is **MISMATCH** even if local said MATCH.
-- **Tests:** a unit test with fake fetch; the watcher e2e gains a case where the local host serves the good build to the watcher and a bad one to the "remote" probe.
-- **Deploy:** add `HASHFRONT_SITE=https://hashswap-demo.vercel.app/` to Vercel env (non-secret; Claude can do this with `vercel env add … --value … --no-sensitive` from `C:\OKX hackathon\deploy\hashfront-status`).
+**A3: second vantage point. CUT** (after the review).
+- A single Vercel region adds little, and cloaking is hard to show in 3 minutes.
+- U1 already gives an independent check from every user's browser. Mention that in the README as the anti-cloaking answer.
+- **Shared helper:** B1 and U1 still need a server-side fetch of the site. Create `apps/web/api/_site.ts` with:
+  - `fetchSite(HASHFRONT_SITE)` → `{root, assets}` (copy the small `urlFor` logic from `packages/watcher/src/fetchSite.ts`)
+  - the site comes from env only, never user input, so it is not an open proxy
 
 ### Track B: name the attacker (new idea, the innovation centrepiece)
 
 **B1: drainer address extraction** (5 h) · branch `feat/b1-suspects`
-- **Why:** after a hijack, users and teams need **the attacker's address now**. The hijacked bundle contains it. Hashfront has the approved bytes onchain, so it can diff them exactly.
+- **Why:** after a hijack, users and teams need **the attacker's address now**. The hijacked bundle usually contains it. Hashfront has the approved bytes onchain, so it can diff them exactly.
+- **Honest scope:** this is best-effort triage. Addresses that are obfuscated (split strings, base64) or fetched at runtime are missed. Say so in the UI ("suspected"), and never claim it catches every drainer.
 - **New file `packages/watcher/src/suspects.ts`** (pure, no I/O):
   - `extractAddresses(bytes)` → checksummed set from `/0x[0-9a-fA-F]{40}/g`, validated with viem `isAddress`, excluding the zero address and `0xeeee…eeee`.
   - `suspects(servedChanged: Map<path, Uint8Array>, approved: Uint8Array[])` → addresses present in served changed files but in **no** approved file of the live release.
@@ -170,7 +247,7 @@ Ordered by impact on the rubric (Technical 25 · Innovation 20 · Problem 15 · 
   - Add a team notice `attacker-addresses` (TEAM_TEXT lists up to 5 addresses; addresses only, never URLs).
   - Optional: `--report-suspects` posts them to a team webhook (skip unless time allows).
 - **Status page backend:** new `GET /api/suspects` handler. It runs the same diff **server-side**:
-  - fetch `HASHFRONT_SITE` files (reuse the A3 fetch helper)
+  - fetch `HASHFRONT_SITE` files (`apps/web/api/_site.ts`)
   - read approved bytes from chain through viem `readContract` on SiteRegistry `readRange` (same as `readReleaseFile`; copy the minimal read loop into `_handlers.ts` or a new `apps/web/api/_chain.ts`)
   - return `{ suspects, checkedAt, liveRelease }`
   - cache 30 s; return `[]` while MATCH
@@ -192,7 +269,13 @@ Ordered by impact on the rubric (Technical 25 · Innovation 20 · Problem 15 · 
   - **Fallback:** when the wallet lacks the capability (`useCapabilities` / an error), send sequential `simulateContract` + `writeContract` calls with a progress counter.
 - **Tests:** Playwright with a mock wallet that rejects `wallet_sendCalls` → sequential path. Real revoke on anvil: deploy an ERC20 mock (add `contracts/test/mocks/MockERC20.sol` and a `forge create` in the test setup), give the user wallet an approval, revoke, then assert `allowance == 0`.
 
-**C2: guardian hook (protocol pause)** (5 h) · branch `feat/c2-guardian`
+**C2: guardian hook (protocol pause). OPTIONAL STRETCH, fork only.**
+- Do it only if every other task is merged by **Dec 4**.
+- **Never deploy it on mainnet.** Show it in the README as a fork-tested option, not in the main demo.
+- **Reason:** one false positive pausing a protocol is a liability.
+- If it is built, it needs **two independent signals** (content MISMATCH *and* a DNS, CT or RDAP alert) before it pauses.
+
+(Original design, kept for reference:) · branch `feat/c2-guardian`
 - **Why:** teams like Neutrl paused their contracts after a hijack. Hashfront can do it within seconds, opt-in.
 - **New contract** `contracts/src/DemoVault.sol`: a minimal vault for HashSwap with `deposit/withdraw`, `pause()/unpause()`, and a `guardian` role set at construction, with custom errors. Unit tests in Foundry (pause blocks withdraw; only the guardian pauses; only the owner unpauses).
 - **Watcher:** flags `--guardian-call <address>` and `--guardian-account <keystore>` (a separate burner `hashfront-guardian`, made with `scripts/create-wallets.ps1` after adding an entry; the user types the password).
@@ -200,10 +283,7 @@ Ordered by impact on the rubric (Technical 25 · Innovation 20 · Problem 15 · 
   - **Recorded:** in `AlertState` (`incident.ts`, new field `guardianSent`) and as a team notice `guardian-paused`.
   - **Never automatic unpause:** unpausing is a human action (CLI `hashfront guardian unpause`, or the owner only).
 - **Tests:** an incident unit test that pauses once per incident, plus an anvil e2e (deploy DemoVault, hijack the host, assert `paused() == true`).
-- ⛓ **Mainnet (optional, after a "go"):**
-  - deploy DemoVault (about 0.0004 OKB) and set the guardian to the new burner
-  - fund the guardian with 0.00003 OKB
-  - show it in the demo and the README
+- **Mainnet:** none (decided after the review).
 
 ### Track D: proof and pitch (Problem, Impact, Demo)
 
@@ -230,8 +310,15 @@ Restructure the top of `README.md` in this order (keep the existing sections bel
    - Link the sources (The Block, Crypto Briefing, Blockaid).
 3. **Who uses it and who pays:**
    - **User:** a DeFi protocol team (named persona from D4 interviews) and their users.
-   - **Payer:** the protocol. Free tier for X Layer protocols (self-hosted watcher). Hosted watcher plus multi-vantage plus guardian as a paid plan (for example $99–299 per month).
-   - Add `docs/business.md` with the reasoning: the losses per incident above against the price.
+   - **Payer:** the protocol.
+     - **Free:** self-hosted watcher plus the Guard extension.
+     - **Paid hosted plan:** 24/7 watcher, CT/RDAP, alerts and the status page, as a *hypothesis*.
+   - **Don't invent a price as fact.** Write "pricing hypothesis, to be validated", and quote what D3 interviewees said they would pay, if they said anything.
+   - Add `docs/business.md`:
+     - losses per incident against the cost
+     - a second channel: wallets license the feed
+     - the honest risks (small X Layer ecosystem; teams already use Cloudflare/DNS alerts)
+   - Add a **"Limitations" section**, with the honest points from the strategy section.
 4. **Alternatives vs Hashfront** table:
    - Blockaid (wallet-side, after the fact)
    - DNSspy / CertSpotter / Cloudflare notifications (DNS only, no users, no safe copy)
@@ -239,7 +326,7 @@ Restructure the top of `README.md` in this order (keep the existing sections bel
    - IPFS CID verification (users never check)
    - Hashfront: all three of detect, warn and recover.
 5. **"Why a TapeOut circuit, not just a Safe":** the policy is public logic anyone can evaluate, it is composable (freeze, timelock, hotfix 3-of-3), it lives with the site container on DeWEB, and the status page evaluates it in the browser.
-6. The architecture diagram (existing Mermaid) updated with CT, RDAP, the vantage probe, suspects and the guardian.
+6. The architecture diagram (existing Mermaid) updated with CT, RDAP, suspects and the Guard extension.
 7. Evidence links: rehearsal, wallet pass, OKX API, metrics.
 
 **D3: user research** (user: 2 h; Claude: 30 min) · branch `docs/d3-research`
@@ -250,18 +337,18 @@ Restructure the top of `README.md` in this order (keep the existing sections bel
 - **Claude:** summarises them into a README "What teams told us" section with 1–2 quotes, with permission.
 - **If nobody replies by Dec 3:** say so honestly and use the public post-mortems as evidence.
 
-**D4: demo video (3 min)** (user + Claude: 4 h) · after A–C are merged
+**D4: demo video (3 min)** (user + Claude: 4 h)
+- **Write the script on day 2**, so features are built to fit it. Record after U1, B1, C1, A1 and A2 are merged.
 - Update `docs/demo-script.md` to this flow:
-  1. problem (10 s)
-  2. setup (`hashfront init`, 15 s)
-  3. release approved in OKX Wallet with the OKX scan (25 s)
-  4. watcher MATCH + CT/RDAP (15 s)
-  5. **hijack** (20 s)
-  6. MISMATCH + Telegram + TapeSend through the **OKX Gateway** + guardian pause (30 s)
-  7. status ALERT + **attacker address** + "Am I affected" + **batch revoke** (35 s)
-  8. verified copy still safe (15 s)
-  9. all-clear + metrics (15 s)
-- **Rehearse twice** on the fork, then once on mainnet ⛓ (E2).
+  1. problem with one number and one real incident (15 s)
+  2. setup: `hashfront init` + release approved in OKX Wallet with the OKX scan (25 s)
+  3. watcher MATCH on **our real domain** (10 s)
+  4. **registrar hijack:** DNS moved, DNSSEC off; CT and RDAP fire (20 s)
+  5. content MISMATCH → Telegram + TapeSend through the **OKX Gateway** (orderId shown) (25 s)
+  6. user opens the hijacked site → **Guard overlay blocks the signature** (25 s)
+  7. status ALERT + **suspected attacker address** + "Am I affected" + **revoke all** (35 s)
+  8. verified copy on DeWEB still safe, then restore and all-clear + metrics (25 s)
+- **Rehearse twice** on the fork, then once live ⛓ (E2). Every claim must be visible on screen.
 
 ### Track E: engineering hygiene and the live proof
 
@@ -271,11 +358,18 @@ Restructure the top of `README.md` in this order (keep the existing sections bel
 - At the end: `CHANGELOG.md`, tag `v1.0.0`, GitHub Release notes.
 
 **E2: ⛓ the live mainnet proof through the OKX Gateway** (2 h, needs a "go")
-- **What:** run the hijack rehearsal again with the watcher started as `pwsh scripts/with-okx.ps1 pwsh scripts/run-watcher.ps1 -Site https://hashswap-demo.vercel.app/ -TelegramChat 6977270776 -Log .watcher/watch.jsonl` (add `--vantage` from A3 to `run-watcher.ps1`).
+- **What:** run the hijack rehearsal again **on the U0 domain**, with the watcher started as `pwsh scripts/with-okx.ps1 pwsh scripts/run-watcher.ps1 -Site https://<U0-domain>/ -TelegramChat 6977270776 -Log .watcher/watch.jsonl`.
 - **Steps:**
-  1. Hijack with `cd ..\deploy\hashswap-hijack; vercel deploy --prod --yes`. **Rebuild `dist-hijack` from v2** first: `VITE_RELEASE=v2 npm run build:hijack -w apps/demo-dapp`, then copy it to `C:\OKX hackathon\deploy\hashswap-hijack` and keep `.vercel/`.
-  2. Expect: CT/RDAP quiet, MISMATCH, an alert through `okx-gateway+rpc` **with an OKX orderId**, suspects including `0xbAd0…0bad`, a guardian pause (if C2 is on mainnet), and the status page showing the attacker.
-  3. Restore v2 with `cd ..\deploy\hashswap-demo; vercel deploy --prod --yes`, then the all-clear.
+  1. **Rebuild `dist-hijack` from v2:** `VITE_RELEASE=v2 npm run build:hijack -w apps/demo-dapp`, then copy it to `C:\OKX hackathon\deploy\hashswap-hijack` and keep `.vercel/`. Deploy it.
+  2. **Hijack:** follow `docs/RUNBOOK-domain-hijack.md` (move the domain or its DNS to the hijack project, DNSSEC off).
+  3. **Expect:**
+     - CT/RDAP alerts
+     - MISMATCH
+     - an alert through `okx-gateway+rpc` **with an OKX orderId**
+     - suspects including `0xbAd0…0bad`
+     - the Guard overlay blocking a signature
+     - the status page showing the attacker
+  4. **Restore** the DNS and DNSSEC, then wait for the all-clear.
 - **Record:** write `docs/evidence-okx-gateway-alert.md` with the timeline and the OKLink links; decode the Builder Code in the alert transaction.
 - **Budget:** about 0.00002 OKB from the reporter (it has about 0.00004). If the gas guard warns, ask the user to top up the reporter.
 
@@ -296,27 +390,28 @@ Restructure the top of `README.md` in this order (keep the existing sections bel
 
 ## 4. Order and time budget (today is Nov 25)
 
-| Order | Task | Estimate | Needs from the user |
-|---|---|---|---|
-| 1 | E1 setup (templates, issues) + D2 skeleton (problem, alternatives, pricing) | 3 h | create the issues, or install `gh` |
-| 2 | A1 CT monitor | 4 h | none |
-| 3 | A2 DNSSEC/RDAP | 3 h | none |
-| 4 | B1 suspects (watcher + `/api/suspects` + UI) | 5 h | none |
-| 5 | A3 vantage probe | 3 h | none |
-| 6 | C1 batch revoke | 3 h | none |
-| 7 | C2 guardian (+ ⛓ optional DemoVault) | 5 h | guardian wallet password; "go" for mainnet |
-| 8 | D1 metrics + 24 h watcher run | 3 h + 24 h running | keep the PC on, or use cron |
-| 9 | D3 research (runs alongside from day 1) | 2 h user | DMs and replies |
-| 10 | E2 ⛓ OKX Gateway mainnet proof | 2 h | Telegram token, OKX keys, reporter password, "go" |
-| 11 | D4 demo video | 4 h | record the screen and voice |
-| 12 | D2 final README, E3 quality pass, v1.0.0, submit | 4 h | form details, "go" |
+| Order | Day | Task | Estimate | Needs from the user |
+|---|---|---|---|---|
+| 1 | Nov 25–26 | **U0 domain** + **D3 DMs sent** (replies run in parallel until Dec 3) | 1 h + 2 h user | buy the domain; send 8–10 DMs |
+| 2 | Nov 26 | E1 setup (templates, issues) + D2 skeleton (problem, alternatives, limitations) + **D4 script draft** | 3 h | create the issues, or install `gh` |
+| 3 | Nov 27–28 | **B1 suspects** (watcher + `/api/suspects` + UI) | 5 h | none |
+| 4 | Nov 28–29 | **U1 Guard extension** + `/api/status` | 6 h | none |
+| 5 | Nov 30 | C1 batch revoke | 3 h | none |
+| 6 | Dec 1 | A1 CT monitor | 4 h | none |
+| 7 | Dec 2 | A2 DNSSEC/RDAP | 3 h | none |
+| 8 | Dec 2 → Dec 3 | D1 metrics, then the watcher runs 24 h on the domain | 3 h + 24 h running | keep the PC on, or use cron |
+| 9 | Dec 3 | E2 ⛓ live domain hijack + OKX Gateway proof | 2 h | Telegram token, OKX keys, reporter password, "go" |
+| 10 | Dec 4 | D4 demo: 2 rehearsals + recording | 4 h | record the screen and voice |
+| 11 | Dec 5 | D2 final README (with D3 quotes), E3 quality pass, v1.0.0 | 4 h | none |
+| 12 | Dec 6 | Submit (Dec 7 is buffer only) | 1 h | form details, "go" |
+| — | only if all done by Dec 4 | C2 guardian, fork only | 5 h | none |
 
-**Total:** about 41 h of work plus the 24 h metrics run. At about 5 h a day this ends around **Dec 4**, which leaves Dec 5–7 as buffer.
+**Total:** about 38 h of work plus the 24 h metrics run. It is done by **Dec 6**, with Dec 7 as buffer.
 
-**Decisions for the user (ask at the right moment, not up front):**
-- **D-1:** buy a cheap test domain (about $2–10), so CT/RDAP/DNSSEC can be shown live on a domain we control? `*.vercel.app` hides these signals. If they say no, show A1/A2 with recorded fixtures and `example.org` read-only.
-- **D-2:** deploy DemoVault on mainnet (about 0.0004 OKB) for the guardian demo, or show it on the fork only?
-- **D-3:** use the hosted cron watcher (GitHub Actions, private repo, secrets) during judging, or keep the PC watcher?
+**Decisions for the user (ask at the right moment):**
+- **D-1:** the domain. **Required** after the review. Ask on day 1, and never buy without a "go". If the user refuses, run A1/A2 on fixtures only, and in the pitch say the demo is a hosting compromise, not a DNS hijack.
+- **D-2:** C2 (DemoVault). Fork only; no mainnet deploy.
+- **D-3:** use the hosted cron watcher (GitHub Actions, secrets) during judging, or keep the PC watcher?
 
 ---
 
@@ -328,14 +423,15 @@ Restructure the top of `README.md` in this order (keep the existing sections bel
   - E2 mainnet gateway alert with an orderId
   - metrics from 24 h or more of real watching
 - [ ] **Innovation 20:**
-  - CT + RDAP + vantage + suspects + guardian + an onchain policy circuit + DeWEB fallback, no wrappers
+  - real domain hijack caught by CT/RDAP + content diff, suspects, a Guard extension blocking the signature, an onchain policy circuit and a DeWEB fallback, as one combination
+  - limitations stated honestly
   - a "Why a circuit" section
 - [ ] **Problem 15:** named users or quotes (D3) + incident stats with sources
-- [ ] **Impact 15:** who uses it, who pays, the pricing table, `docs/business.md`
+- [ ] **Impact 15:** who uses it, who pays, a pricing *hypothesis* backed by D3, `docs/business.md` with risks
 - [ ] **Demo 15:** a 3-minute scripted video, rehearsed, every claim visible on screen
 - [ ] **UX 10:** one clean flow per persona:
   - **Team:** `init`, then the Action, then approve
-  - **User:** the pinned link and the status page, then "Am I affected", then revoke
+  - **User:** the Guard overlay on the hijacked site, then the status page, then "Am I affected", then revoke all
 - [ ] **Validate:**
   - users talked to
   - the alternatives table
