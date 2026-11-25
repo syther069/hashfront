@@ -384,9 +384,17 @@ Restructure the top of `README.md` in this order (keep the existing sections bel
 
 | Task | Status | Branch |
 |---|---|---|
-| E1 setup (templates) | done, PR not opened yet (issues need the user or `gh`) | `feat/e1-templates` |
-| D2 skeleton | done; final README, source links and diagram update pending | `docs/d2-readme` |
-| A1 to E3 | not started | |
+| E1 setup (templates) | done, merged (PR 1); issues still to create | `feat/e1-templates` |
+| D2 skeleton | done, merged (PR 2); limitations section, final README, source links and diagram pending | `docs/d2-readme` |
+| U0 own domain | waiting for the user's go to buy | `chore/u0-domain` |
+| D3 research | DM templates next (Claude part) | `docs/d3-research` |
+| D4 script draft | not started | `docs/d4-script` |
+| B1 suspects | not started (builds `apps/web/api/_site.ts`) | `feat/b1-suspects` |
+| U1 Guard extension + `/api/status` | not started | `feat/u1-guard` |
+| A1 CT monitor | paused, WIP saved locally (signal module and wiring; typecheck not green); resumes at order 6 | `feat/a1-ct-monitor` |
+| A3 vantage probe | **CUT** | |
+| C1, A2, D1, E2, E3 | not started | |
+| C2 guardian | optional stretch, fork only | |
 
 ## 4. Order and time budget (today is Nov 25)
 
