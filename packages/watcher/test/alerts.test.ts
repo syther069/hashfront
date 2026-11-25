@@ -20,6 +20,7 @@ const obs = (status: Status, extra: Partial<Observation> = {}): Observation => (
   dnsVerified: true,
   dnsUnknown: false,
   ctAlert: false,
+  registryAlert: false,
   scanMalicious: false,
   at: new Date((clock += 30_000)),
   ...extra,

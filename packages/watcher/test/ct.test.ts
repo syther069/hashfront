@@ -62,6 +62,7 @@ const cfg = (log: FetchLike, extra: Partial<SignalConfig> = {}): SignalConfig =>
   dnsServers: ["r1"],
   scan: false,
   ctIntervalMs: 0,
+  registry: false,
   deps: { resolver, tls, ctFetch: log },
   ...extra,
 });
