@@ -394,7 +394,8 @@ Restructure the top of `README.md` in this order (keep the existing sections bel
 | C1 batch revoke | done, merged (PR 4); real-wallet batch untested, not deployed | |
 | A1 CT monitor | done on a branch, PR to open; fixtures and `example.org` only (no own domain) | `feat/a1-ct-monitor` |
 | A3 vantage probe | **CUT** | |
-| A2, D1, E2, E3 | not started | |
+| A2 DNSSEC + RDAP | done on a branch (stacked on A1), PR to open; fixtures and `example.org` only | `feat/a2-dnssec-rdap` |
+| D1, E2, E3 | not started | |
 | C2 guardian | optional stretch, fork only | |
 
 ## 4. Order and time budget (today is Nov 25)

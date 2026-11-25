@@ -33,7 +33,8 @@ TLS certificate and OnchainOS phishing scan.
   --once                run one check and exit (codes below)
 
 Signals (step 8):
-  --signals <list>      dns,cert,scan,ct (default) | any subset that includes dns | none (DNS is the essential one)
+  --signals <list>      dns,cert,scan,ct,registry (default) | any subset that includes dns | none (DNS is the essential one)
+                        registry = RDAP (nameservers, transfer locks) and DNSSEC (DoH)
                         ct = Certificate Transparency: a new certificate for the domain, from CertSpotter (crt.sh as fallback)
   --state <file>        signals baseline. Recorded on the first check whose content is MATCH (or by --signals-only),
                         then only compared; it never updates itself
@@ -86,7 +87,7 @@ function parseSignals(list: string, opts: { state?: string | undefined; rebaseli
     if (opts.state || opts.rebaseline) throw new UsageError("--state and --rebaseline need signals (not --signals none)");
     return undefined;
   }
-  for (const n of names) if (!["dns", "cert", "scan", "ct"].includes(n)) throw new UsageError(`--signals: unknown signal "${n}"`);
+  for (const n of names) if (!["dns", "cert", "scan", "ct", "registry"].includes(n)) throw new UsageError(`--signals: unknown signal "${n}"`);
   if (!names.includes("dns")) throw new UsageError('--signals: dns is the essential signal; use "none" to turn all signals off');
   if (opts.rebaseline && !opts.state) throw new UsageError("--rebaseline needs --state");
   let dnsServers: string[] | undefined;
@@ -101,6 +102,7 @@ function parseSignals(list: string, opts: { state?: string | undefined; rebaseli
     cert: names.includes("cert"),
     scan: names.includes("scan"),
     ct: names.includes("ct"),
+    registry: names.includes("registry"),
     rebaseline: opts.rebaseline,
     ...(opts.state ? { statePath: opts.state } : {}),
     ...(dnsServers ? { dnsServers } : {}),
@@ -152,6 +154,16 @@ function signalsJson(s: SignalsReport) {
             ...(s.ct.source ? { source: s.ct.source, seen: s.ct.seen } : {}),
             ...(s.ct.error ? { error: s.ct.error } : {}),
             ...(s.ct.findings.length ? { findings: s.ct.findings.map((f) => `${f.severity}: ${f.message} [${f.hosts.join(", ")}]`) } : {}),
+          },
+        }
+      : {}),
+    ...(s.registry
+      ? {
+          registry: {
+            level: s.registry.level,
+            ...(s.registry.dnssec ? { dnssec: s.registry.dnssec } : {}),
+            ...(s.registry.errors.length ? { errors: s.registry.errors } : {}),
+            ...(s.registry.findings.length ? { findings: s.registry.findings.map((f) => `${f.severity}: ${f.message}`) } : {}),
           },
         }
       : {}),
@@ -217,7 +229,7 @@ async function main(argv: string[]): Promise<number> {
       rpc: { type: "string" },
       interval: { type: "string", default: "30" },
       once: { type: "boolean", default: false },
-      signals: { type: "string", default: "dns,cert,scan,ct" },
+      signals: { type: "string", default: "dns,cert,scan,ct,registry" },
       state: { type: "string" },
       rebaseline: { type: "boolean", default: false },
       "dns-servers": { type: "string" },

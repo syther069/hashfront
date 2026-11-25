@@ -18,6 +18,7 @@ export type TeamNotice =
   | "phishing-flag"
   | "attacker-addresses"
   | "new-certificate"
+  | "registry-change"
   | "dns-unknown"
   | "reporter-gas-low";
 
@@ -41,6 +42,11 @@ export interface Observation {
   ctNotice?: string;
   /** sha256 of the CT findings, the evidence when CT alone opens the incident */
   ctObserved?: Hex;
+  /** the registry's nameservers changed or DNSSEC went from on to off (RDAP, DoH); opens the same incident */
+  registryAlert: boolean;
+  /** any registry finding above info, for the team message */
+  registryNotice?: string;
+  registryObserved?: Hex;
   /** sha256 of the compared DNS fields, when DNS resolved */
   dnsObserved?: Hex;
   scanMalicious: boolean;
@@ -99,6 +105,7 @@ export const TEAM_AFTER: Record<TeamNotice, number> = {
   "phishing-flag": 1,
   "attacker-addresses": 1,
   "new-certificate": 1,
+  "registry-change": 1,
   "dns-unknown": 4,
   "reporter-gas-low": 1,
 };
@@ -118,6 +125,7 @@ function teamConditions(o: Observation): Set<TeamNotice> {
   if (o.scanMalicious) on.add("phishing-flag");
   if (o.status === "MISMATCH" && o.suspects?.length) on.add("attacker-addresses");
   if (o.ctNotice) on.add("new-certificate");
+  if (o.registryNotice) on.add("registry-change");
   if (o.dnsUnknown) on.add("dns-unknown");
   if (o.reporterGasLow) on.add("reporter-gas-low");
   return on;
@@ -136,8 +144,8 @@ export function step(prev: AlertState, o: Observation, cfg: IncidentConfig): { s
     created.push(m);
   };
 
-  const bad: Record<IncidentType, boolean> = { mismatch: o.status === "MISMATCH", dns: o.dnsAlert || o.ctAlert };
-  const evidence: Record<IncidentType, Hex> = { mismatch: o.contentObserved, dns: (o.dnsAlert ? o.dnsObserved : (o.ctObserved ?? o.dnsObserved)) ?? o.contentObserved };
+  const bad: Record<IncidentType, boolean> = { mismatch: o.status === "MISMATCH", dns: o.dnsAlert || o.ctAlert || o.registryAlert };
+  const evidence: Record<IncidentType, Hex> = { mismatch: o.contentObserved, dns: (o.dnsAlert ? o.dnsObserved : o.ctAlert ? o.ctObserved : o.registryAlert ? o.registryObserved : undefined) ?? o.dnsObserved ?? o.contentObserved };
   const wasOpen = Object.keys(s.open).length > 0;
 
   // A check that could not answer holds the count: alternating a bad page with a timeout (or failing DNS on purpose)
@@ -159,7 +167,7 @@ export function step(prev: AlertState, o: Observation, cfg: IncidentConfig): { s
   if (wasOpen) {
     // An open DNS incident clears only on DNS that was actually re-checked: a hijacker controlling the nameservers
     // could otherwise make the queries fail and get an all-clear sent.
-    const dnsClean = s.open.dns ? o.dnsVerified && !o.dnsAlert && !o.ctAlert : !o.dnsAlert && !o.ctAlert;
+    const dnsClean = s.open.dns ? o.dnsVerified && !o.dnsAlert && !o.ctAlert && !o.registryAlert : !o.dnsAlert && !o.ctAlert && !o.registryAlert;
     const clean = o.status === "MATCH" && dnsClean && o.signalLevel !== "alert";
     s.clearRun = clean ? s.clearRun + 1 : 0;
     if (s.clearRun >= cfg.clear) {
@@ -181,7 +189,7 @@ export function step(prev: AlertState, o: Observation, cfg: IncidentConfig): { s
     t.run++;
     if (!t.notified && t.run >= TEAM_AFTER[n]) {
       t.notified = true;
-      push("team", n, o.contentObserved, n === "attacker-addresses" ? o.suspects?.slice(0, 5).join("\n") : n === "new-certificate" ? o.ctNotice : undefined);
+      push("team", n, o.contentObserved, n === "attacker-addresses" ? o.suspects?.slice(0, 5).join("\n") : n === "new-certificate" ? o.ctNotice : n === "registry-change" ? o.registryNotice : undefined);
     }
   }
   return { state: s, created };

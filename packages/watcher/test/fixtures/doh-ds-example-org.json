@@ -1,0 +1,1 @@
+{"Status":0,"TC":false,"RD":true,"RA":true,"AD":true,"CD":false,"Question":[{"name":"example.org","type":43}],"Answer":[{"name":"example.org","type":43,"TTL":3600,"data":"2371 13 2 169521ab547df3a14c1719a0f0d5289278e22682b53ce9f22d379b922125bf98"}]}

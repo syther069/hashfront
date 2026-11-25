@@ -9,6 +9,7 @@ import { assertNoLink, sendTelegram, type TelegramConfig } from "./telegram.ts";
 import { readAlertText, sendTapeSend } from "./tapesend.ts";
 import { canonicalHash } from "../signals/util.ts";
 import type { CtFinding } from "../signals/ct.ts";
+import type { RegistryFinding } from "../signals/registry.ts";
 import { checkReporterGas, type GasStatus } from "./gas.ts";
 import type { OkxClient } from "@hashfront/okx/client";
 
@@ -46,6 +47,7 @@ const TEAM_TEXT: Record<TeamNotice, string> = {
   "phishing-flag": "OnchainOS security dapp-scan flags the website as malicious. Check the domain now and send a community warning if it is confirmed.",
   "attacker-addresses": "Addresses found only in the hijacked website, not in the approved release (best-effort; obfuscated ones are missed). Check them before telling users:",
   "new-certificate": "A new TLS certificate was issued for the domain (Certificate Transparency). If your team did not request it, check the registrar and DNS now.",
+  "registry-change": "The domain registry data changed (RDAP/DNSSEC): nameservers, a transfer lock or DNSSEC. If your team did not do this, contact the registrar now and consider it a hijack in progress:",
   "dns-unknown": "The domain's DNS records could not be checked for several checks in a row (resolvers failing, or no usable baseline). DNS changes are not being detected.",
   "reporter-gas-low": "The reporter wallet is low on OKB: fewer than 3 onchain alerts left at the current gas price. Top it up so a hijack alert can't fail for lack of gas.",
 };
@@ -71,11 +73,19 @@ function ctNoticeText(findings: CtFinding[]): string | undefined {
   return f.slice(0, 3).map((x) => `${x.severity}: ${plain(x.message)}; names: ${x.hosts.map(plain).join(", ")}`).join("\n");
 }
 
+function registryNoticeText(findings: RegistryFinding[]): string | undefined {
+  const f = findings.filter((x) => x.severity !== "info");
+  if (!f.length) return undefined;
+  return f.slice(0, 4).map((x) => `${x.severity}: ${plain(x.message)}`).join(String.fromCharCode(10));
+}
+
 export function observationOf(r: CheckResult, extra: { reporterGasLow?: boolean } = {}): Observation {
   const s = r.signals;
   const dnsObs = s?.dns?.observation;
   const ctFindings = s?.ct?.findings ?? [];
   const ctNotice = ctNoticeText(ctFindings);
+  const registryFindings = s?.registry?.findings ?? [];
+  const registryNotice = registryNoticeText(registryFindings);
   return {
     status: r.verdict.status,
     contentObserved: r.verdict.observed as Hex,
@@ -85,6 +95,9 @@ export function observationOf(r: CheckResult, extra: { reporterGasLow?: boolean 
     dnsUnknown: Boolean(s && !s.skipped && (s.dns?.level === "unknown" || s.baseline === "not-recorded")),
     ...(dnsObs?.ok ? { dnsObserved: dnsObs.observed } : {}),
     ctAlert: ctFindings.some((f) => f.severity === "alert"),
+    registryAlert: registryFindings.some((f) => f.severity === "alert"),
+    ...(registryNotice ? { registryNotice } : {}),
+    ...(registryFindings.length ? { registryObserved: canonicalHash(registryFindings) } : {}),
     ...(ctNotice ? { ctNotice } : {}),
     ...(ctFindings.length ? { ctObserved: canonicalHash(ctFindings) } : {}),
     scanMalicious: s?.scan?.result.status === "malicious",

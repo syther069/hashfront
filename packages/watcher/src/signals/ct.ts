@@ -85,7 +85,7 @@ function fromCrtSh(raw: unknown): Issuance[] {
 }
 
 async function getJson(fetchFn: FetchLike, url: string): Promise<unknown> {
-  const res = await fetchFn(url, { signal: AbortSignal.timeout(TIMEOUT_MS), headers: { accept: "application/json" } });
+  const res = await fetchFn(url, { signal: AbortSignal.timeout(TIMEOUT_MS), headers: { accept: "application/json", "user-agent": "hashfront-watcher/0.1" } });
   if (!res.ok) throw new Error(`${new URL(url).hostname} answered HTTP ${res.status}`);
   return res.json();
 }
