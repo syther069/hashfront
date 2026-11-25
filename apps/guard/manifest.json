@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Hashfront Guard",
+  "version": "0.1.0",
+  "description": "Blocks wallet signatures on a protected DeFi site while Hashfront reports that it does not match its onchain-approved release.",
+  "permissions": [],
+  "host_permissions": ["https://hashswap-demo.vercel.app/*", "https://hashfront-status.vercel.app/*"],
+  "background": { "service_worker": "bg.js" },
+  "action": { "default_title": "Hashfront Guard", "default_popup": "popup.html" },
+  "content_scripts": [
+    {
+      "matches": ["https://hashswap-demo.vercel.app/*"],
+      "js": ["guard-main.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://hashswap-demo.vercel.app/*"],
+      "js": ["config.js", "lib.js", "guard.js"],
+      "run_at": "document_start"
+    }
+  ]
+}

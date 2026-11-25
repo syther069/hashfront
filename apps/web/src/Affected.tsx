@@ -3,13 +3,15 @@
 // protocol's own contracts and let the user revoke the dangerous ones from their wallet.
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useAccount, useConnect, usePublicClient, useSwitchChain, useWalletClient } from "wagmi";
-import { erc20Abi, isAddress, type Address, type PublicClient } from "viem";
+import { useAccount, useConfig, useConnect, usePublicClient, useSendCalls, useSwitchChain, useWalletClient } from "wagmi";
+import { waitForCallsStatus } from "wagmi/actions";
+import { erc20Abi, isAddress, type Address, type PublicClient, type WalletClient } from "viem";
 import type { Approval } from "@hashfront/okx/risk";
 import type { Target } from "./config.ts";
 import { short } from "./chain.ts";
 import { useApprovals, useOkbPrice } from "./okx.ts";
 import { dataSuffix } from "./wallet.ts";
+import { messageOf, PartialRevoke, revokeAll, type RevokeCall } from "./revoke.ts";
 
 const RISK_LABEL: Record<Approval["risk"], string> = {
   attacker: "attacker address",
@@ -24,6 +26,8 @@ export function Affected({ target, alertOpen }: { target: Target; alertOpen: boo
   const [typed, setTyped] = useState("");
   const address = isAddress(typed, { strict: false }) ? typed : connected;
   const q = useApprovals(address);
+  // the outcome of "revoke all" outlives the table: once every approval is gone the table is replaced by "none"
+  const [note, setNote] = useState<{ done?: string; error?: string }>({});
   // shown only where the OKX functions answer (the Vercel status host); hidden on the DeWEB copy and plain hosts
   const api = useOkbPrice();
   if (!api.isSuccess) return null;
@@ -46,13 +50,15 @@ export function Affected({ target, alertOpen }: { target: Target; alertOpen: boo
         />
         {!connected && <ConnectButton />}
       </div>
+      {note.done && <p className="good small" data-testid="revoke-all-done">{note.done}</p>}
+      {note.error && <p className="error small" data-testid="revoke-all-error">{note.error}</p>}
       {address && q.isPending && <p className="muted">Asking OKX for approvals of {short(address)}…</p>}
       {q.isError && <p className="error">Could not check approvals right now: {q.error.message}</p>}
       {q.data && (
         q.data.approvals.length === 0 ? (
           <p className="good" data-testid="affected-none">No token approvals on X Layer for {short(address ?? "")}.</p>
         ) : (
-          <ApprovalTable rows={q.data.approvals} target={target} owner={address as Address} wrongChain={chainId !== undefined && chainId !== target.chain.id} canRevoke={connected?.toLowerCase() === address?.toLowerCase()} />
+          <ApprovalTable rows={q.data.approvals} target={target} owner={address as Address} wrongChain={chainId !== undefined && chainId !== target.chain.id} canRevoke={connected?.toLowerCase() === address?.toLowerCase()} onNote={setNote} />
         )
       )}
     </section>
@@ -69,7 +75,7 @@ function ConnectButton() {
   ) : null;
 }
 
-function ApprovalTable({ rows, target, owner, wrongChain, canRevoke }: { rows: Approval[]; target: Target; owner: Address; wrongChain: boolean; canRevoke: boolean }) {
+function ApprovalTable({ rows, target, owner, wrongChain, canRevoke, onNote }: { rows: Approval[]; target: Target; owner: Address; wrongChain: boolean; canRevoke: boolean; onNote: (n: { done?: string; error?: string }) => void }) {
   const explorer = target.chain.blockExplorers?.default.url;
   return (
     <div className="scroll">
@@ -98,6 +104,7 @@ function ApprovalTable({ rows, target, owner, wrongChain, canRevoke }: { rows: A
           ))}
         </tbody>
       </table>
+      {canRevoke && !wrongChain && <RevokeAll rows={rows} owner={owner} onNote={onNote} />}
       {!canRevoke && <p className="muted small">Connect this address's wallet to revoke.</p>}
       {canRevoke && wrongChain && <SwitchHint target={target} />}
     </div>
@@ -115,6 +122,68 @@ function SwitchHint({ target }: { target: Target }) {
   );
 }
 
+/** approve(spender, 0), simulated first, with the X Layer Builder Code like every Hashfront tx. */
+async function revokeOne(client: PublicClient, wallet: WalletClient, owner: Address, c: RevokeCall): Promise<`0x${string}`> {
+  const { request } = await client.simulateContract({
+    address: c.token,
+    abi: erc20Abi,
+    functionName: "approve",
+    args: [c.spender, 0n],
+    account: owner,
+    ...(dataSuffix ? { dataSuffix } : {}),
+  });
+  const hash = await wallet.writeContract(request);
+  await client.waitForTransactionReceipt({ hash });
+  return hash;
+}
+
+/** One click for every approval that is not this protocol's own: one wallet prompt when the wallet can batch (EIP-5792). */
+function RevokeAll({ rows, owner, onNote }: { rows: Approval[]; owner: Address; onNote: (n: { done?: string; error?: string }) => void }) {
+  const client = usePublicClient() as PublicClient | undefined;
+  const { data: wallet } = useWalletClient();
+  const config = useConfig();
+  const { sendCallsAsync } = useSendCalls();
+  const queryClient = useQueryClient();
+  const risky = rows.filter((r) => r.risk !== "trusted");
+  const [busy, setBusy] = useState<string | undefined>();
+  if (risky.length === 0) return null;
+
+  async function run() {
+    if (!wallet || !client) return;
+    onNote({});
+    setBusy(`Revoking 0 of ${risky.length}…`);
+    try {
+      const r = await revokeAll(
+        risky.map((a) => ({ token: a.token as Address, spender: a.spender as Address })),
+        {
+          dataSuffix,
+          batch: async (calls) => {
+            const { id } = await sendCallsAsync({ calls, account: owner });
+            const result = await waitForCallsStatus(config, { id });
+            if (result.status !== "success") throw new Error("the wallet reported that the batch did not succeed");
+          },
+          one: async (c) => void (await revokeOne(client, wallet, owner, c)),
+          progress: (d, t) => setBusy(`Revoking ${Math.min(d + 1, t)} of ${t}…`),
+        },
+      );
+      onNote({ done: r.mode === "batch" ? `Revoked ${r.done} approvals in one confirmation.` : `Revoked ${r.done} approvals, one confirmation each (this wallet cannot batch).` });
+      await queryClient.invalidateQueries({ queryKey: ["okx-approvals"] });
+    } catch (e) {
+      onNote({ error: messageOf(e) });
+      await queryClient.invalidateQueries({ queryKey: ["okx-approvals"] });
+    } finally {
+      setBusy(undefined);
+    }
+  }
+  return (
+    <p>
+      <button type="button" className="danger" disabled={Boolean(busy)} onClick={() => void run()} data-testid="revoke-all">
+        {busy ?? `Revoke all risky (${risky.length})`}
+      </button>
+    </p>
+  );
+}
+
 function RevokeButton({ approval, owner, disabled, target }: { approval: Approval; owner: Address; disabled: boolean; target: Target }) {
   const client = usePublicClient() as PublicClient | undefined;
   const { data: wallet } = useWalletClient();
@@ -124,17 +193,7 @@ function RevokeButton({ approval, owner, disabled, target }: { approval: Approva
     if (!wallet || !client) return;
     setState({ busy: true });
     try {
-      // approve(spender, 0) on the token, simulated first, with the X Layer Builder Code like every Hashfront tx
-      const { request } = await client.simulateContract({
-        address: approval.token as Address,
-        abi: erc20Abi,
-        functionName: "approve",
-        args: [approval.spender as Address, 0n],
-        account: owner,
-        ...(dataSuffix ? { dataSuffix } : {}),
-      });
-      const hash = await wallet.writeContract(request);
-      await client.waitForTransactionReceipt({ hash });
+      const hash = await revokeOne(client, wallet, owner, { token: approval.token as Address, spender: approval.spender as Address });
       setState({ done: hash });
       await queryClient.invalidateQueries({ queryKey: ["okx-approvals"] });
     } catch (e) {

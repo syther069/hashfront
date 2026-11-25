@@ -4,7 +4,7 @@ import { getAddress, isAddress, toFunctionSelector, type Hex } from "viem";
 import { credentialsFromEnv, OkxClient, OkxError } from "@hashfront/okx/client";
 import { approvals, NATIVE_PRICE_ADDRESS, prices, txScanEvm } from "@hashfront/okx/endpoints";
 import { classifyPages, parseAllowed } from "@hashfront/okx/risk";
-import type { SuspectsReport } from "./_site.ts";
+import type { StatusReport, SuspectsReport } from "./_site.ts";
 
 export interface Deps {
   okx: OkxClient | undefined;
@@ -52,6 +52,22 @@ export async function getSuspects(_req: Request, load: (() => Promise<SuspectsRe
   } catch {
     return json(503, { error: "could not compare the site with the live release right now" });
   }
+}
+
+/** GET /api/status: the signed-in-chain verdict on the protected site, for the Guard extension. CORS is open: it is public, read-only data. */
+export async function getStatus(_req: Request, load: (() => Promise<StatusReport>) | undefined): Promise<Response> {
+  const open = { "access-control-allow-origin": "*" };
+  if (!load) return withHeaders(json(503, { error: "site monitoring is not configured on this host" }), open);
+  try {
+    return withHeaders(json(200, await load(), "public, s-maxage=20, stale-while-revalidate=40"), open);
+  } catch {
+    return withHeaders(json(503, { error: "could not read the live release right now" }), open);
+  }
+}
+
+function withHeaders(res: Response, extra: Record<string, string>): Response {
+  for (const [k, v] of Object.entries(extra)) res.headers.set(k, v);
+  return res;
 }
 
 const ALLOWED_SELECTORS = new Set(["approve(uint256,bytes32,uint32)", "cancel(uint256)", "freeze()"].map((s) => toFunctionSelector(`function ${s}`)));

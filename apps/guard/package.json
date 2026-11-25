@@ -1,0 +1,12 @@
+{
+  "name": "@hashfront/guard",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "description": "Hashfront Guard: browser extension that blocks wallet signatures on a hijacked protected site",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test \"test/*.test.js\"",
+    "test:e2e": "node --test \"test/*.e2e.mjs\""
+  }
+}
