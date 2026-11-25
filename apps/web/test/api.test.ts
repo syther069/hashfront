@@ -5,7 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { encodeFunctionData, parseAbi } from "viem";
 import { OkxClient } from "@hashfront/okx/client";
-import { getApprovals, getPrice, getSuspects, postTxScan, type Deps } from "../api/_handlers.ts";
+import { getApprovals, getPrice, getStatus, getSuspects, postTxScan, type Deps } from "../api/_handlers.ts";
 import { suspectsLoaderFromEnv } from "../api/_site.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -109,4 +109,17 @@ test("suspects loader: only an https site and a real gate address from env are a
   assert.equal(suspectsLoaderFromEnv({ ...ok, HASHFRONT_SITE: "not a url" }, []), undefined);
   assert.equal(suspectsLoaderFromEnv({ ...ok, HASHFRONT_GATE: "0x123" }, []), undefined);
   assert.equal(suspectsLoaderFromEnv({ HASHFRONT_GATE: GATE }, []), undefined);
+});
+
+test("status: public JSON feed with CORS and a 20 s cache; generic 503 when unconfigured or failing", async () => {
+  const report = { site: "https://hashswap-demo.vercel.app", status: "ok" as const, liveRelease: 2, rootHash: "0xabc", assets: { "index.html": "0xabc" }, suspects: [], checkedAt: "2026-11-26T00:00:00.000Z" };
+  const ok = await getStatus(new Request("https://s/api/status"), async () => report);
+  assert.equal(ok.status, 200);
+  assert.equal(ok.headers.get("access-control-allow-origin"), "*");
+  assert.match(ok.headers.get("cache-control") ?? "", /s-maxage=20/);
+  assert.deepEqual(await ok.json(), report);
+  assert.equal((await getStatus(new Request("https://s/api/status"), undefined)).status, 503);
+  const bad = await getStatus(new Request("https://s/api/status"), async () => { throw new Error("rpc https://secret"); });
+  assert.equal(bad.status, 503);
+  assert.doesNotMatch(await bad.text(), /secret|https/);
 });

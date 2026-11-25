@@ -2,6 +2,7 @@
 // they differ, the addresses only the served files contain. Used by /api/suspects and /api/approvals (and by the
 // status endpoint later). The site and gate come from env, never from the request, so none of this is an open proxy.
 import { createPublicClient, http, type Address, type PublicClient } from "viem";
+import { releaseGateAbi } from "@hashfront/cli/abi";
 import { NETWORKS } from "@hashfront/cli/chains";
 import type { Context } from "@hashfront/cli/context";
 import { readGateInfo, readRelease, type GateInfo } from "@hashfront/cli/gate";
@@ -75,13 +76,41 @@ export async function loadSuspects(d: SiteDeps, now: () => Date = () => new Date
   return { status, liveRelease: Number(r.live.id), suspects, checkedAt: now().toISOString() };
 }
 
+export interface StatusReport {
+  site: string;
+  /** alert: an onchain alert is open or the host serves a mismatch; unknown: nothing safe can be said (host behind, CDN) */
+  status: "ok" | "alert" | "unknown";
+  liveRelease: number;
+  /** approved sha256 of index.html, so a client can check the page it received on its own */
+  rootHash: string;
+  assets: Record<string, string>;
+  suspects: string[];
+  checkedAt: string;
+}
+
+/** The feed the Guard extension (and any wallet that wants it) reads. */
+export async function loadStatus(d: SiteDeps, now: () => Date = () => new Date()): Promise<StatusReport> {
+  const r = await readSite(d);
+  const [kind] = await r.ctx.publicClient.readContract({ address: d.gate, abi: releaseGateAbi, functionName: "lastAlert" });
+  const alertOpen = kind === 1 || kind === 2;
+  const v = r.verdict.status;
+  const status = alertOpen || v === "MISMATCH" ? "alert" : v === "MATCH" ? "ok" : "unknown";
+  const suspects =
+    v === "MISMATCH"
+      ? await findSuspects({ ctx: r.ctx, info: r.info, live: r.live, served: r.served, diffs: r.verdict.diffs, site: d.site, ...(d.fetchImpl ? { fetch: { fetchImpl: d.fetchImpl } } : {}) }).catch(() => [])
+      : [];
+  const assets = Object.fromEntries(r.live.files.map((f) => [f.path, f.sha256]));
+  return { site: d.site.origin, status, liveRelease: Number(r.live.id), rootHash: assets["index.html"] ?? "", assets, suspects, checkedAt: now().toISOString() };
+}
+
 /** Builds a cached loader from env, or undefined when the site is not configured. */
-export function suspectsLoaderFromEnv(
+export function siteLoaderFromEnv<T>(
   env: Record<string, string | undefined>,
   manifests: readonly string[],
-  ttlMs = 30_000,
+  load: (d: SiteDeps) => Promise<T>,
+  ttlMs = 20_000,
   now: () => number = Date.now,
-): (() => Promise<SuspectsReport>) | undefined {
+): (() => Promise<T>) | undefined {
   const { HASHFRONT_SITE: site, HASHFRONT_GATE: gate, HASHFRONT_RPC: rpc } = env;
   if (!site || !gate || !/^0x[0-9a-fA-F]{40}$/.test(gate)) return undefined;
   let url: URL;
@@ -92,14 +121,22 @@ export function suspectsLoaderFromEnv(
   }
   if (url.protocol !== "https:") return undefined;
   const deps: SiteDeps = { site: url, gate: gate as Address, manifests, ...(rpc ? { rpcUrl: rpc } : {}) };
-  let hit: { at: number; value: Promise<SuspectsReport> } | undefined;
+  let hit: { at: number; value: Promise<T> } | undefined;
   return () => {
     if (hit && now() - hit.at < ttlMs) return hit.value;
-    const value = loadSuspects(deps);
+    const value = load(deps);
     hit = { at: now(), value };
     value.catch(() => {
       if (hit?.value === value) hit = undefined; // a failure is not cached
     });
     return value;
   };
+}
+
+export function suspectsLoaderFromEnv(env: Record<string, string | undefined>, manifests: readonly string[], ttlMs = 30_000, now: () => number = Date.now): (() => Promise<SuspectsReport>) | undefined {
+  return siteLoaderFromEnv(env, manifests, (d) => loadSuspects(d), ttlMs, now);
+}
+
+export function statusLoaderFromEnv(env: Record<string, string | undefined>, manifests: readonly string[], ttlMs = 20_000, now: () => number = Date.now): (() => Promise<StatusReport>) | undefined {
+  return siteLoaderFromEnv(env, manifests, (d) => loadStatus(d), ttlMs, now);
 }

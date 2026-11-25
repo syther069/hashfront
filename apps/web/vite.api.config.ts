@@ -18,6 +18,7 @@ export default defineConfig({
         "tx-scan": resolve(root, "api/tx-scan.ts"),
         price: resolve(root, "api/price.ts"),
         suspects: resolve(root, "api/suspects.ts"),
+        status: resolve(root, "api/status.ts"),
       },
       output: { format: "es", entryFileNames: "[name].js", chunkFileNames: "_[name]-[hash].js" },
     },
