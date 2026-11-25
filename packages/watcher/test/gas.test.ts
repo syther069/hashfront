@@ -50,6 +50,7 @@ test("a low reporter raises one team notice, never a community alert", () => {
     dnsAlert: false,
     dnsVerified: true,
     dnsUnknown: false,
+    ctAlert: false,
     scanMalicious: false,
     reporterGasLow: low,
     at: new Date(),

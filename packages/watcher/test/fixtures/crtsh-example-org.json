@@ -1,0 +1,4 @@
+[
+  { "issuer_ca_id": 1, "issuer_name": "C=US, O=SSL Corporation, CN=Cloudflare TLS Issuing ECC CA 3", "common_name": "example.org", "name_value": "*.example.org\nexample.org", "id": 99000000001, "entry_timestamp": "2026-11-24T22:44:34.123", "not_before": "2026-11-24T22:44:33", "not_after": "2027-02-22T22:50:51", "serial_number": "00aa" },
+  { "issuer_ca_id": 2, "issuer_name": "C=US, O=Let's Encrypt, CN=R11", "common_name": "www.example.org", "name_value": "www.example.org", "id": 99000000002, "entry_timestamp": "2026-11-25T01:00:00.000", "not_before": "2026-11-25T00:59:00", "not_after": "2027-02-23T00:58:59", "serial_number": "00bb" }
+]

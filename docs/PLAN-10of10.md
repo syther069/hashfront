@@ -392,7 +392,7 @@ Restructure the top of `README.md` in this order (keep the existing sections bel
 | B1 suspects | done, merged (PR 3); `/api/suspects` deployed | |
 | U1 Guard extension + `/api/status` | done, merged; `/api/status` deployed; not in Chrome Web Store | |
 | C1 batch revoke | done, merged (PR 4); real-wallet batch untested, not deployed | |
-| A1 CT monitor | in progress, rebased on main | `feat/a1-ct-monitor` |
+| A1 CT monitor | done on a branch, PR to open; fixtures and `example.org` only (no own domain) | `feat/a1-ct-monitor` |
 | A3 vantage probe | **CUT** | |
 | A2, D1, E2, E3 | not started | |
 | C2 guardian | optional stretch, fork only | |
