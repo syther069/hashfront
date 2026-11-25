@@ -48,6 +48,15 @@ Users can't see the difference, and teams usually find out from their users.
 - It **lives with the site container on DeWEB**, so whoever may change the verified copy is the same thing the circuit decides.
 - A multisig answers "who signed". The circuit answers "is this release allowed under the policy", and everyone can check that without trusting us.
 
+## Honest limitations
+
+- **Content-integrity monitoring is not new.** What is new here is the combination: an onchain release policy, a verified fallback copy on DeWEB, an onchain alert, and the attacker's addresses named from the approved bytes.
+- **Our live demo is a hosting compromise, not a DNS hijack.** We do not own a domain, so the demo deploys a bad build to the protocol's `*.vercel.app` host. Certificate Transparency, registry and DNSSEC signals cannot show a hijack on a shared `vercel.app` certificate and are tested on recorded responses only.
+- **Address extraction is best-effort triage.** Addresses that are obfuscated or fetched at runtime are missed.
+- **A user-side guard protects only users who installed it.** It is a reference for wallets to read the same feed.
+- **One vantage point.** The watcher sees what its own network sees. A hijacker who serves the real page to the watcher is caught only through the DNS and certificate signals.
+- **Pricing is a hypothesis.** It is not validated by paying customers; see [`docs/business.md`](docs/business.md).
+
 ## Live on X Layer mainnet
 
 | | |
