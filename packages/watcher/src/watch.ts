@@ -3,7 +3,7 @@ import type { Context } from "@hashfront/cli/context";
 import { readReleaseFile, readSnapshot } from "./chain.ts";
 import { compare, sha256, type AllowList, type Verdict } from "./compare.ts";
 import { fetchServed, type FetchOptions } from "./fetchSite.ts";
-import { isTextPath, referencedAssets, suspects as findAddresses } from "./suspects.ts";
+import { findSuspects } from "./triage.ts";
 import { loadManifests } from "./manifests.ts";
 import { checkSignals, type SignalConfig, type SignalsReport } from "./signals/index.ts";
 import { errorText } from "./signals/util.ts";
@@ -32,8 +32,6 @@ export interface CheckResult {
 
 /** Approved index.html bytes per live release id; releases never change once live. */
 const indexCache = new Map<string, Uint8Array>();
-/** Verified approved bytes per release id and path, for the suspects diff. */
-const approvedCache = new Map<string, Uint8Array>();
 
 export async function checkOnce(ctx: Context, cfg: WatchConfig): Promise<CheckResult> {
   const started = Date.now();
@@ -79,7 +77,7 @@ export async function checkOnce(ctx: Context, cfg: WatchConfig): Promise<CheckRe
   let suspectsError: string | undefined;
   if (verdict.status === "MISMATCH") {
     try {
-      suspects = await suspectsOf(ctx, cfg, snap, served, verdict);
+      suspects = await findSuspects({ ctx, info: snap.info, live: snap.live, served, diffs: verdict.diffs, site: cfg.site, ...(cfg.fetch ? { fetch: cfg.fetch } : {}) });
     } catch (err) {
       suspectsError = errorText(err);
     }
@@ -94,39 +92,6 @@ export async function checkOnce(ctx: Context, cfg: WatchConfig): Promise<CheckRe
     ...(suspects ? { suspects } : {}),
     ...(suspectsError ? { suspectsError } : {}),
   };
-}
-
-/**
- * Diffs the addresses of what the host serves against every text file of the live release. The served side is the
- * changed files plus the scripts the served index.html loads (a hijack usually ships a differently named bundle).
- */
-async function suspectsOf(ctx: Context, cfg: WatchConfig, snap: Awaited<ReturnType<typeof readSnapshot>>, served: Awaited<ReturnType<typeof fetchServed>>, verdict: Verdict): Promise<string[]> {
-  const changed: Uint8Array[] = [];
-  for (const d of verdict.diffs) {
-    const f = d.kind === "changed" ? served.get(d.path) : undefined;
-    if (f?.ok) changed.push(f.bytes);
-  }
-  const root = served.get("index.html");
-  if (root?.ok) {
-    const extra = referencedAssets(root.bytes).filter((p) => !served.has(p));
-    for (const f of (await fetchServed(cfg.site, extra, cfg.fetch)).values()) if (f.ok) changed.push(f.bytes);
-  }
-
-  const approved: Uint8Array[] = [];
-  for (const file of snap.live.files) {
-    if (!isTextPath(file.path)) continue;
-    const key = `${ctx.gate}:${snap.live.id}:${file.path}`;
-    let bytes = approvedCache.get(key);
-    if (!bytes) {
-      bytes = await readReleaseFile(ctx, snap.info, snap.live.id, file.path);
-      // Same rule as the index check: bytes that do not hash to the approved value are not "approved" evidence,
-      // and treating them as such could hide an attacker address.
-      if (sha256(bytes) !== file.sha256) throw new Error(`${file.path} read from the registry does not match the approved hash`);
-      approvedCache.set(key, bytes);
-    }
-    approved.push(bytes);
-  }
-  return findAddresses(changed, approved);
 }
 
 export interface LoopOptions {

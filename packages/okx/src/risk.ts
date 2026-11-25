@@ -1,7 +1,7 @@
 // Browser-safe helpers (no node: imports): turn OKX approval data into what a user needs after a hijack.
 import type { ApprovalItem, ApprovalPage } from "./types.ts";
 
-export type ApprovalRisk = "trusted" | "flagged" | "eoa" | "unknown";
+export type ApprovalRisk = "attacker" | "trusted" | "flagged" | "eoa" | "unknown";
 
 export interface Approval {
   token: string;
@@ -21,12 +21,13 @@ const MAX_UINT = (1n << 256n) - 1n;
 
 /**
  * Risk, most serious first:
+ * - attacker: the spender is an address seen only in the hijacked site (Hashfront suspects)
  * - flagged: OKX marks the spender as vulnerable or risky
  * - eoa: the spender is a plain wallet, not a contract (the classic drainer pattern)
  * - unknown: a contract the protocol does not list
  * - trusted: one of the protocol's own contracts (ALLOWED_SPENDERS)
  */
-export function classify(item: ApprovalItem, allowed: ReadonlySet<string>): Approval | undefined {
+export function classify(item: ApprovalItem, allowed: ReadonlySet<string>, suspects: ReadonlySet<string> = new Set()): Approval | undefined {
   const spender = item.approvalAddress ?? "";
   const token = item.tokenAddress ?? "";
   if (!ADDR.test(spender) || !ADDR.test(token)) return undefined;
@@ -41,7 +42,10 @@ export function classify(item: ApprovalItem, allowed: ReadonlySet<string>): Appr
   }
   const reasons: string[] = [];
   let risk: ApprovalRisk;
-  if (allowed.has(spender.toLowerCase())) {
+  if (suspects.has(spender.toLowerCase()) && !allowed.has(spender.toLowerCase())) {
+    risk = "attacker";
+    reasons.push("seen only in the hijacked site");
+  } else if (allowed.has(spender.toLowerCase())) {
     risk = "trusted";
     reasons.push("spender is one of this protocol's own addresses");
   } else if (item.vulnerabilityFlag) {
@@ -68,12 +72,12 @@ export function classify(item: ApprovalItem, allowed: ReadonlySet<string>): Appr
   };
 }
 
-const ORDER: Record<ApprovalRisk, number> = { flagged: 0, eoa: 1, unknown: 2, trusted: 3 };
+const ORDER: Record<ApprovalRisk, number> = { attacker: 0, flagged: 1, eoa: 2, unknown: 3, trusted: 4 };
 
-export function classifyPages(pages: ApprovalPage[], allowed: ReadonlySet<string>): Approval[] {
+export function classifyPages(pages: ApprovalPage[], allowed: ReadonlySet<string>, suspects: ReadonlySet<string> = new Set()): Approval[] {
   return pages
     .flatMap((p) => p.dataList ?? [])
-    .map((i) => classify(i, allowed))
+    .map((i) => classify(i, allowed, suspects))
     .filter((a): a is Approval => a !== undefined)
     .sort((a, b) => ORDER[a.risk] - ORDER[b.risk] || Number(b.unlimited) - Number(a.unlimited));
 }

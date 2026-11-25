@@ -5,7 +5,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { encodeFunctionData, parseAbi } from "viem";
 import { OkxClient } from "@hashfront/okx/client";
-import { getApprovals, getPrice, postTxScan, type Deps } from "../api/_handlers.ts";
+import { getApprovals, getPrice, getSuspects, postTxScan, type Deps } from "../api/_handlers.ts";
+import { suspectsLoaderFromEnv } from "../api/_site.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const fixture = async (name: string) => JSON.parse(await readFile(path.join(here, "../../../packages/okx/test/fixtures", `${name}.json`), "utf8")) as unknown;
@@ -70,4 +71,42 @@ test("price: OKB in USD from the live Market API answer, cached at the edge", as
   const body = await res.json();
   assert.ok(body.okbUsd > 0);
   assert.match(res.headers.get("cache-control") ?? "", /s-maxage=60/);
+});
+
+test("approvals: a spender that the site diff names is ranked 'attacker', first, even above OKX flags", async () => {
+  const live = await fixture("approvals");
+  const spender = (live as { dataList: { approvalAddress: string }[] }[])[0]!.dataList[0]!.approvalAddress;
+  const d = { ...deps(live).d, suspects: async () => ({ status: "mismatch" as const, liveRelease: 2, suspects: [spender.toUpperCase().replace("0X", "0x")], checkedAt: "2026-11-26T00:00:00.000Z" }) };
+  const body = await (await getApprovals(new Request(`https://s/api/approvals?address=${USER}`), d)).json();
+  assert.equal(body.approvals[0].risk, "attacker");
+  assert.match(body.approvals[0].reasons.join(" "), /hijacked site/);
+});
+
+test("approvals: a failing suspects lookup never hides the approvals", async () => {
+  const live = await fixture("approvals");
+  const d = { ...deps(live).d, suspects: async () => { throw new Error("rpc down"); } };
+  const res = await getApprovals(new Request(`https://s/api/approvals?address=${USER}`), d);
+  assert.equal(res.status, 200);
+  assert.ok((await res.json()).approvals.length > 0);
+});
+
+test("suspects: 503 when the site is not configured, JSON with a short cache when it is, a generic 503 on failure", async () => {
+  assert.equal((await getSuspects(new Request("https://s/api/suspects"), undefined)).status, 503);
+  const report = { status: "mismatch" as const, liveRelease: 2, suspects: ["0xBAd0000000000000000000000000000000000Bad"], checkedAt: "2026-11-26T00:00:00.000Z" };
+  const ok = await getSuspects(new Request("https://s/api/suspects"), async () => report);
+  assert.equal(ok.status, 200);
+  assert.match(ok.headers.get("cache-control") ?? "", /s-maxage=30/);
+  assert.deepEqual((await ok.json()).suspects, report.suspects);
+  const bad = await getSuspects(new Request("https://s/api/suspects"), async () => { throw new Error("secret rpc url https://x"); });
+  assert.equal(bad.status, 503);
+  assert.doesNotMatch(await bad.text(), /secret|https/);
+});
+
+test("suspects loader: only an https site and a real gate address from env are accepted", () => {
+  const ok = { HASHFRONT_SITE: "https://hashswap-demo.vercel.app/", HASHFRONT_GATE: GATE };
+  assert.equal(typeof suspectsLoaderFromEnv(ok, []), "function");
+  assert.equal(suspectsLoaderFromEnv({ ...ok, HASHFRONT_SITE: "http://hashswap-demo.vercel.app/" }, []), undefined);
+  assert.equal(suspectsLoaderFromEnv({ ...ok, HASHFRONT_SITE: "not a url" }, []), undefined);
+  assert.equal(suspectsLoaderFromEnv({ ...ok, HASHFRONT_GATE: "0x123" }, []), undefined);
+  assert.equal(suspectsLoaderFromEnv({ HASHFRONT_GATE: GATE }, []), undefined);
 });
