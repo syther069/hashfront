@@ -286,6 +286,14 @@ Restructure the top of `README.md` in this order (keep the existing sections bel
 
 ---
 
+## Status (update as tasks move)
+
+| Task | Status | Branch |
+|---|---|---|
+| E1 setup (templates) | done, PR not opened yet (issues need the user or `gh`) | `feat/e1-templates` |
+| D2 skeleton | done; final README, source links and diagram update pending | `docs/d2-readme` |
+| A1 to E3 | not started | |
+
 ## 4. Order and time budget (today is Nov 25)
 
 | Order | Task | Estimate | Needs from the user |
