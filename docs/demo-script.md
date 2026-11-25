@@ -11,18 +11,20 @@ Record at 1080p, with the browser zoom at 110 % so small text stays readable. Op
 
 Speak slowly. Every claim on screen should be something the viewer can see.
 
+**Draft v2 (Nov 25).** We have no domain of our own, so the live hijack is a *hosting compromise* of `hashswap-demo.vercel.app` (someone deploys a bad build to the protocol's host). Say so in the voice-over; do not call it a DNS hijack. CT, RDAP and DNSSEC are shown only from recorded fixtures, with a caption saying so. Rows marked (later) need a task that is not merged yet; cut them if it is not.
+
 | Time | On screen | Voice-over |
 |---|---|---|
-| 0:00–0:20 | HashSwap site (tab 1) | "This is HashSwap, a DeFi frontend. Its contracts are safe, but its website is not. In the Oct 31 Name.com hijacks, 12 sites were taken over through their registrar. Users saw the same page, clicked Swap, and signed an approval to the attacker." |
-| 0:20–0:45 | Status page (tab 2), scrolled slowly: live v1, policy, the 32-row table | "Hashfront fixes this. Every release goes through a TapeOut policy circuit on X Layer: two of three maintainers and a timelock, or all three at once. The page reads this from chain in your browser, including every row of the circuit." |
-| 0:45–1:00 | Verified copy (tab 3) next to tab 1 | "The approved release is stored byte for byte on DeWEB under the protocol's own name. This verified link is what users pin." |
-| 1:00–1:15 | Terminal: MATCH lines | "Our watcher compares every file the website serves with the onchain release, every 30 seconds. It also watches DNS, the TLS certificate and the OnchainOS phishing scan." |
-| 1:15–1:35 | Terminal: run the Vercel deploy of `deploy/hashswap-hijack` (or cut to the rehearsal recording) | "Now let's hijack our own demo site. The copy looks identical, but the Swap approval goes to an attacker address." |
-| 1:35–1:55 | Tab 1 refreshed: router `0xBAd0…0Bad`; terminal: MISMATCH | "Twenty seconds later the watcher sees it: the page changed and the approved bundle is gone." |
-| 1:55–2:15 | Telegram alert arrives; terminal shows the TapeSend tx; OKLink shows the `alert` tx | "On the second check it alerts once: on Telegram and on chain through TapeSend, from the protocol's own identity. The text is fixed in the contract and has no links, so a stolen alert key can't phish anyone." |
-| 2:15–2:30 | Tab 2 refreshed: red "Open alert: website mismatch"; the badge shows ALERT | "The status page and the badge on the protocol's other sites turn red." |
-| 2:30–2:45 | Tab 3 (verified copy): router `0xA1DA…` is the real one | "And users still have a safe way in. The verified copy comes from chain, and the attacker can't touch it." |
-| 2:45–3:00 | Deploy the real build back; terminal MATCH ×3 and the all-clear; Telegram "all clear" | "When the site is fixed, Hashfront sends one all-clear. Setup is one command, `hashfront init`, and a GitHub Action handles releases. Hashfront: your users always know where the real app is." |
+| 0:00-0:10 | Headlines: Name.com hijack, about $138K | "Frontend hijacks drain DeFi users without touching a contract. Users see the same page and sign an approval to the attacker." |
+| 0:10-0:25 | Terminal: `hashfront init` simulation, fee in OKB and USD | "Setup is one command. The team picks three maintainers and a timelock." |
+| 0:25-0:50 | Approve page in OKX Wallet with the OKX transaction scan | "A release needs two of three maintainers. The approval shows OKX's scan of the exact transaction before it is signed." |
+| 0:50-1:05 | Terminal: watcher MATCH lines; status page: live release and the 32-row policy | "The watcher compares every file the site serves with the approved bytes on chain, every 30 seconds." |
+| 1:05-1:25 | Deploy `deploy/hashswap-hijack`; reload the site: router `0xBAd0...0Bad` | "Now someone deploys a bad build to the protocol's host. It looks the same, but the Swap approval goes to an attacker." |
+| 1:25-1:55 | Terminal: MISMATCH, then the alert through the OKX Gateway with an order id; Telegram; OKLink tx | "The watcher sees it in 21 seconds and alerts on the second check, on Telegram and on chain, with fixed text and no links." |
+| 1:55-2:20 | Status page: Open alert and the suspected attacker address (later: B1); Guard overlay blocks the signature (later: U1) | "It names the address that appears only in the hijacked build, and the browser guard stops the signature before it is made." |
+| 2:20-2:40 | "Am I affected?" with a wallet, then revoke (later: C1 revoke all) | "A user pastes their address, sees the risky approvals and revokes them in one step." |
+| 2:40-2:50 | Verified copy on tapekit.org: real router `0xA1DA...` | "The verified copy comes from chain. The attacker cannot touch it." |
+| 2:50-3:00 | Restore, all-clear on Telegram; limits slide (what it does not catch) | "One all-clear when it is fixed. It protects the content of the site; a hijack of a domain we do not control is not shown live." |
 
 ## If you record the hijack live
 
