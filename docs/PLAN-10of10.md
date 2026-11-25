@@ -409,7 +409,7 @@ Restructure the top of `README.md` in this order (keep the existing sections bel
 **Total:** about 38 h of work plus the 24 h metrics run. It is done by **Dec 6**, with Dec 7 as buffer.
 
 **Decisions for the user (ask at the right moment):**
-- **D-1:** the domain. **Required** after the review. Ask on day 1, and never buy without a "go". If the user refuses, run A1/A2 on fixtures only, and in the pitch say the demo is a hosting compromise, not a DNS hijack.
+- **D-1: DECIDED, no domain (Nov 25).** A1/A2 run on fixtures and `example.org` read-only; the pitch and demo say the live demo is a hosting compromise (the `*.vercel.app` deploy), not a DNS hijack, and that CT/RDAP/DNSSEC need a domain we control. Originally: the domain was **required** after the review. Ask on day 1, and never buy without a "go". If the user refuses, run A1/A2 on fixtures only, and in the pitch say the demo is a hosting compromise, not a DNS hijack.
 - **D-2:** C2 (DemoVault). Fork only; no mainnet deploy.
 - **D-3:** use the hosted cron watcher (GitHub Actions, secrets) during judging, or keep the PC watcher?
 
