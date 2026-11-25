@@ -384,16 +384,17 @@ Restructure the top of `README.md` in this order (keep the existing sections bel
 
 | Task | Status | Branch |
 |---|---|---|
-| E1 setup (templates) | done, merged (PR 1); issues still to create | `feat/e1-templates` |
-| D2 skeleton | done, merged (PR 2); limitations section, final README, source links and diagram pending | `docs/d2-readme` |
-| U0 own domain | waiting for the user's go to buy | `chore/u0-domain` |
-| D3 research | DM templates next (Claude part) | `docs/d3-research` |
-| D4 script draft | not started | `docs/d4-script` |
-| B1 suspects | not started (builds `apps/web/api/_site.ts`) | `feat/b1-suspects` |
-| U1 Guard extension + `/api/status` | not started | `feat/u1-guard` |
-| A1 CT monitor | paused, WIP saved locally (signal module and wiring; typecheck not green); resumes at order 6 | `feat/a1-ct-monitor` |
+| E1 setup (templates) | done, merged (PR 1); issues still to create | |
+| D2 skeleton + limitations | done, merged; final README, source links and diagram pending | |
+| U0 own domain | **SKIPPED by the user (Nov 25).** A1/A2 run on fixtures; demo is a hosting compromise | |
+| D3 research | DM templates merged; user sends 8-10 DMs and logs replies by Dec 3 | |
+| D4 script draft | draft merged (hosting-compromise flow) | |
+| B1 suspects | done, merged (PR 3); `/api/suspects` deployed | |
+| U1 Guard extension + `/api/status` | done, merged; `/api/status` deployed; not in Chrome Web Store | |
+| C1 batch revoke | done, merged (PR 4); real-wallet batch untested, not deployed | |
+| A1 CT monitor | in progress, rebased on main | `feat/a1-ct-monitor` |
 | A3 vantage probe | **CUT** | |
-| C1, A2, D1, E2, E3 | not started | |
+| A2, D1, E2, E3 | not started | |
 | C2 guardian | optional stretch, fork only | |
 
 ## 4. Order and time budget (today is Nov 25)
