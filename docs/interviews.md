@@ -1,7 +1,7 @@
 # Customer interviews (Track B)
 
 Goal: confirm or correct who Hashfront is for before we build the watcher. **You** send every message; nothing here is sent automatically.
-Stop condition: at least 3 conversations by the end of task C (watcher core). Log every reply below, including "no". Never paraphrase a reply into a stronger quote than what was said.
+Stop condition: send 8-10 DMs on day 1 (Nov 25-26) and log every reply by Dec 3. If nobody replies by Dec 3, say so honestly in the README and use the public post-mortems as evidence. Log every reply below, including "no". Never paraphrase a reply into a stronger quote than what was said.
 
 ## Who to contact
 | Group | Where to find them | Why |
@@ -14,8 +14,10 @@ Stop condition: at least 3 conversations by the end of task C (watcher core). Lo
 > Hi [name], I'm building Hashfront for the X Layer TapeOut hackathon: it watches a DeFi frontend's domain (content hash + DNS) and, if it's hijacked, alerts your community within about a minute and points them to a verified copy of your last approved release on chain.
 > I'm not selling anything yet. Could I ask you 5 quick questions (15 min call or async here) about how you deploy your frontend and what you'd do if the domain were hijacked?
 
-## Message for teams hit on Oct 31
+## Message for teams hit on Oct 30-31 (Name.com)
+Teams named in the incident reports: Flap, Kintsu, Pickle Finance, Origami Finance, FluxBeam, Echelon, StonkFun, StakePoint. Contact them only through their public channels.
 > Hi [name], sorry about the Name.com incident. I'm building an open tool so small DeFi teams find out about a domain hijack within about a minute and can send users to a verified copy of their app. Would you share, in 15 minutes or async, how you found out, how long it took, and what would have helped? Happy to keep anything you say off the record.
+> One more question: would a browser extension that blocks wallet signatures on your site while it is flagged help your users, or would they never install it?
 
 ## Questions (same order every time)
 1. Where is your frontend hosted and is it behind a CDN (Cloudflare, Vercel)? Static build or server-rendered?
@@ -23,8 +25,11 @@ Stop condition: at least 3 conversations by the end of task C (watcher core). Lo
 3. If your domain were hijacked tonight, how would you find out, and how would you tell users? Which channel do your users actually read?
 4. Have you had a frontend or DNS incident, or a near miss? How long until you noticed?
 5. Would a verified backup link plus a 1-minute alert be worth paying for? Roughly what would feel fair per month, or what would make it a no?
+6. Who would your users trust to warn them before they sign: a status page, a wallet warning, a browser extension, or your Telegram?
 
 ## Log
-| Date | Team | Channel | Replied? | Host/CDN | Deploy owner | Alert channel | Incident history | Would pay? (their words) |
-|---|---|---|---|---|---|---|---|---|
-| | | | | | | | | |
+| Date | Team | Channel | Replied? | Host/CDN | Deploy owner | Alert channel | Incident history | Would pay? (their words) | What we changed because of it |
+|---|---|---|---|---|---|---|---|---|---|
+| | | | | | | | | | |
+
+Quotes go into the README only with the person's permission, word for word. Pricing in `docs/business.md` stays a hypothesis until a reply supports it.
