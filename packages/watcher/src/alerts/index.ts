@@ -42,6 +42,7 @@ const TEAM_TEXT: Record<TeamNotice, string> = {
   unverifiable: "Some approved files could not be fetched for several checks in a row, so the website could not be verified.",
   "signal-warn": "A domain signal needs a look: a new address network, a new certificate issuer, an invalid certificate, or resolvers disagreeing.",
   "phishing-flag": "OnchainOS security dapp-scan flags the website as malicious. Check the domain now and send a community warning if it is confirmed.",
+  "attacker-addresses": "Addresses found only in the hijacked website, not in the approved release (best-effort; obfuscated ones are missed). Check them before telling users:",
   "dns-unknown": "The domain's DNS records could not be checked for several checks in a row (resolvers failing, or no usable baseline). DNS changes are not being detected.",
   "reporter-gas-low": "The reporter wallet is low on OKB: fewer than 3 onchain alerts left at the current gas price. Top it up so a hijack alert can't fail for lack of gas.",
 };
@@ -71,6 +72,7 @@ export function observationOf(r: CheckResult, extra: { reporterGasLow?: boolean 
     dnsUnknown: Boolean(s && !s.skipped && (s.dns?.level === "unknown" || s.baseline === "not-recorded")),
     ...(dnsObs?.ok ? { dnsObserved: dnsObs.observed } : {}),
     scanMalicious: s?.scan?.result.status === "malicious",
+    ...(r.suspects?.length ? { suspects: r.suspects } : {}),
     ...(extra.reporterGasLow !== undefined ? { reporterGasLow: extra.reporterGasLow } : {}),
     at: r.checkedAt,
   };
@@ -122,7 +124,7 @@ export function createDispatcher(cfg: AlertConfig) {
         if (channel === "telegram") {
           const tg = cfg.telegram!;
           if (m.audience === "team") {
-            await sendTelegram(tg, tg.teamChat!, `${cfg.name} (team notice): ${TEAM_TEXT[m.kind as TeamNotice]}\n\nObserved hash: ${m.observed}`);
+            await sendTelegram(tg, tg.teamChat!, `${cfg.name} (team notice): ${TEAM_TEXT[m.kind as TeamNotice]}${m.detail ? `\n${m.detail}` : ""}\n\nObserved hash: ${m.observed}`);
           } else {
             await sendTelegram(tg, tg.chat, await communityText(m.kind as 1 | 2 | 3, m.observed));
           }

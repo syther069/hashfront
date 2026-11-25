@@ -16,6 +16,7 @@ export type TeamNotice =
   | "unverifiable"
   | "signal-warn"
   | "phishing-flag"
+  | "attacker-addresses"
   | "dns-unknown"
   | "reporter-gas-low";
 
@@ -36,6 +37,8 @@ export interface Observation {
   /** sha256 of the compared DNS fields, when DNS resolved */
   dnsObserved?: Hex;
   scanMalicious: boolean;
+  /** addresses seen only in the hijacked site, checksummed (MISMATCH only) */
+  suspects?: string[];
   /** the reporter can no longer pay for a few onchain alerts */
   reporterGasLow?: boolean;
   at: Date;
@@ -46,6 +49,8 @@ export interface Outgoing {
   audience: "community" | "team";
   kind: AlertKind | TeamNotice;
   observed: Hex;
+  /** extra text for team notices: addresses only, never links */
+  detail?: string;
   createdAt: string;
   /** channels this message still has to reach; it leaves the outbox when empty */
   pending: Channel[];
@@ -85,6 +90,7 @@ export const TEAM_AFTER: Record<TeamNotice, number> = {
   unverifiable: 4,
   "signal-warn": 2,
   "phishing-flag": 1,
+  "attacker-addresses": 1,
   "dns-unknown": 4,
   "reporter-gas-low": 1,
 };
@@ -102,6 +108,7 @@ function teamConditions(o: Observation): Set<TeamNotice> {
   // An OnchainOS blacklist hit on our own domain is urgent, but the onchain alert texts describe a file or DNS
   // change, not a blacklist entry, so it goes to the team, who can confirm and act.
   if (o.scanMalicious) on.add("phishing-flag");
+  if (o.status === "MISMATCH" && o.suspects?.length) on.add("attacker-addresses");
   if (o.dnsUnknown) on.add("dns-unknown");
   if (o.reporterGasLow) on.add("reporter-gas-low");
   return on;
@@ -112,10 +119,10 @@ export function step(prev: AlertState, o: Observation, cfg: IncidentConfig): { s
   const s: AlertState = structuredClone(prev);
   const created: Outgoing[] = [];
   const at = o.at.toISOString();
-  const push = (audience: Outgoing["audience"], kind: Outgoing["kind"], observed: Hex) => {
+  const push = (audience: Outgoing["audience"], kind: Outgoing["kind"], observed: Hex, detail?: string) => {
     const pending: Channel[] = audience === "community" ? [...cfg.channels] : cfg.teamChat ? ["telegram"] : [];
     if (!pending.length) return;
-    const m: Outgoing = { id: `${++s.seq}`, audience, kind, observed, createdAt: at, pending, attempts: 0 };
+    const m: Outgoing = { id: `${++s.seq}`, audience, kind, observed, createdAt: at, pending, attempts: 0, ...(detail ? { detail } : {}) };
     s.outbox.push(m);
     created.push(m);
   };
@@ -165,7 +172,7 @@ export function step(prev: AlertState, o: Observation, cfg: IncidentConfig): { s
     t.run++;
     if (!t.notified && t.run >= TEAM_AFTER[n]) {
       t.notified = true;
-      push("team", n, o.contentObserved);
+      push("team", n, o.contentObserved, n === "attacker-addresses" ? o.suspects?.slice(0, 5).join("\n") : undefined);
     }
   }
   return { state: s, created };
