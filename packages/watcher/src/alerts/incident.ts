@@ -17,6 +17,7 @@ export type TeamNotice =
   | "signal-warn"
   | "phishing-flag"
   | "attacker-addresses"
+  | "new-certificate"
   | "dns-unknown"
   | "reporter-gas-low";
 
@@ -34,6 +35,12 @@ export interface Observation {
   dnsVerified: boolean;
   /** DNS signals are on but could not be checked (resolvers failed, or no usable baseline) */
   dnsUnknown: boolean;
+  /** a certificate from an issuer the host never used (CT); opens the same incident as a DNS change */
+  ctAlert: boolean;
+  /** any new certificate that is not a routine renewal, with issuer and hosts for the team message */
+  ctNotice?: string;
+  /** sha256 of the CT findings, the evidence when CT alone opens the incident */
+  ctObserved?: Hex;
   /** sha256 of the compared DNS fields, when DNS resolved */
   dnsObserved?: Hex;
   scanMalicious: boolean;
@@ -49,7 +56,7 @@ export interface Outgoing {
   audience: "community" | "team";
   kind: AlertKind | TeamNotice;
   observed: Hex;
-  /** extra text for team notices: addresses only, never links */
+  /** extra text for team notices: addresses or certificate names only, never links */
   detail?: string;
   createdAt: string;
   /** channels this message still has to reach; it leaves the outbox when empty */
@@ -91,6 +98,7 @@ export const TEAM_AFTER: Record<TeamNotice, number> = {
   "signal-warn": 2,
   "phishing-flag": 1,
   "attacker-addresses": 1,
+  "new-certificate": 1,
   "dns-unknown": 4,
   "reporter-gas-low": 1,
 };
@@ -109,6 +117,7 @@ function teamConditions(o: Observation): Set<TeamNotice> {
   // change, not a blacklist entry, so it goes to the team, who can confirm and act.
   if (o.scanMalicious) on.add("phishing-flag");
   if (o.status === "MISMATCH" && o.suspects?.length) on.add("attacker-addresses");
+  if (o.ctNotice) on.add("new-certificate");
   if (o.dnsUnknown) on.add("dns-unknown");
   if (o.reporterGasLow) on.add("reporter-gas-low");
   return on;
@@ -127,8 +136,8 @@ export function step(prev: AlertState, o: Observation, cfg: IncidentConfig): { s
     created.push(m);
   };
 
-  const bad: Record<IncidentType, boolean> = { mismatch: o.status === "MISMATCH", dns: o.dnsAlert };
-  const evidence: Record<IncidentType, Hex> = { mismatch: o.contentObserved, dns: o.dnsObserved ?? o.contentObserved };
+  const bad: Record<IncidentType, boolean> = { mismatch: o.status === "MISMATCH", dns: o.dnsAlert || o.ctAlert };
+  const evidence: Record<IncidentType, Hex> = { mismatch: o.contentObserved, dns: (o.dnsAlert ? o.dnsObserved : (o.ctObserved ?? o.dnsObserved)) ?? o.contentObserved };
   const wasOpen = Object.keys(s.open).length > 0;
 
   // A check that could not answer holds the count: alternating a bad page with a timeout (or failing DNS on purpose)
@@ -150,7 +159,7 @@ export function step(prev: AlertState, o: Observation, cfg: IncidentConfig): { s
   if (wasOpen) {
     // An open DNS incident clears only on DNS that was actually re-checked: a hijacker controlling the nameservers
     // could otherwise make the queries fail and get an all-clear sent.
-    const dnsClean = s.open.dns ? o.dnsVerified && !o.dnsAlert : !o.dnsAlert;
+    const dnsClean = s.open.dns ? o.dnsVerified && !o.dnsAlert && !o.ctAlert : !o.dnsAlert && !o.ctAlert;
     const clean = o.status === "MATCH" && dnsClean && o.signalLevel !== "alert";
     s.clearRun = clean ? s.clearRun + 1 : 0;
     if (s.clearRun >= cfg.clear) {
@@ -172,7 +181,7 @@ export function step(prev: AlertState, o: Observation, cfg: IncidentConfig): { s
     t.run++;
     if (!t.notified && t.run >= TEAM_AFTER[n]) {
       t.notified = true;
-      push("team", n, o.contentObserved, n === "attacker-addresses" ? o.suspects?.slice(0, 5).join("\n") : undefined);
+      push("team", n, o.contentObserved, n === "attacker-addresses" ? o.suspects?.slice(0, 5).join("\n") : n === "new-certificate" ? o.ctNotice : undefined);
     }
   }
   return { state: s, created };

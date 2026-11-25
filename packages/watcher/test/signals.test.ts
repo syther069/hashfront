@@ -159,7 +159,8 @@ function cfg(zone: Zone | "down", extra: Partial<SignalConfig> = {}, scan = '{"o
   return {
     statePath: path.join(dir, "baseline.json"),
     dnsServers: ["r1"],
-    deps: { resolver: stubResolver({ r1: zone }), tls, runScan: async () => scan },
+    // CT is on by default; an empty log keeps these tests off the network (the CT tests below bring their own)
+    deps: { resolver: stubResolver({ r1: zone }), tls, runScan: async () => scan, ctFetch: async () => ({ ok: true, status: 200, json: async () => [] }) },
     ...extra,
   };
 }

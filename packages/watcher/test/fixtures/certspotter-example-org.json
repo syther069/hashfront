@@ -1,0 +1,56 @@
+[
+  {
+    "id": "18604924518",
+    "tbs_sha256": "3217ab92c8550fbdfdfa3202794973d78aed9cdde6b4ed2f2314d804950afdd8",
+    "cert_sha256": "9a2e26c8afdf92e91a53e854590820911ed7cd994cbd7c082def9df68b40010e",
+    "dns_names": [
+      "*.example.org",
+      "example.org"
+    ],
+    "pubkey_sha256": "18f85052a3ed4dba245e4e4c635375fc543737dbaa7e94d5f6981a0091585709",
+    "issuer": {
+      "friendly_name": "SSL.com",
+      "pubkey_sha256": "e38be21734c2fa1fcbfb7387460e11b39bf8f80729cc766f23d4e77b64433469",
+      "name": "C=US, O=SSL Corporation, CN=Cloudflare TLS Issuing ECC CA 3"
+    },
+    "not_before": "2026-11-24T22:44:33Z",
+    "not_after": "2027-02-22T22:50:51Z",
+    "revoked": false
+  },
+  {
+    "id": "18605262995",
+    "tbs_sha256": "aa385f3443a9eee6498dd182d80477edf0b5567bf4cdcd91c766ccdc8009d04d",
+    "cert_sha256": "20a0adc4767c29a2efc95cc8294525da1fd50b43b196877245d0da3e9fde6825",
+    "dns_names": [
+      "*.example.org",
+      "example.org"
+    ],
+    "pubkey_sha256": "9dcf9b6b42995cb31be8368a78c57b08f1e2b02f8e2f408a6fc78c0c7f9148cb",
+    "issuer": {
+      "friendly_name": "SSL.com",
+      "pubkey_sha256": "c7c8980b720999527393107ab7a8806f5ea8bbda381a5479f704af4666c4a050",
+      "name": "C=US, O=SSL Corporation, CN=Cloudflare TLS Issuing RSA CA 3"
+    },
+    "not_before": "2026-11-24T23:07:20Z",
+    "not_after": "2027-02-22T23:13:07Z",
+    "revoked": false
+  },
+  {
+    "id": "18605263139",
+    "tbs_sha256": "1d6abff222b5c16f0c89564a8f4cf42fc500d333e31f53876b3f2055b7256c09",
+    "cert_sha256": "7ef95f43e213a81f6b3f472e4a3b7ed76e0c2087997cc25aa98a25ce92e5b311",
+    "dns_names": [
+      "*.example.org",
+      "example.org"
+    ],
+    "pubkey_sha256": "0bb9032e6c7ca91213f6457c861241acdb33424a04235dac7571014b22e9116a",
+    "issuer": {
+      "friendly_name": "SSL.com",
+      "pubkey_sha256": "e38be21734c2fa1fcbfb7387460e11b39bf8f80729cc766f23d4e77b64433469",
+      "name": "C=US, O=SSL Corporation, CN=Cloudflare TLS Issuing ECC CA 3"
+    },
+    "not_before": "2026-11-24T23:09:04Z",
+    "not_after": "2027-02-22T23:13:07Z",
+    "revoked": false
+  }
+]

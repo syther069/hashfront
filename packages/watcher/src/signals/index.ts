@@ -6,6 +6,7 @@ import { readFile, rename, writeFile } from "node:fs/promises";
 import { diffObservation, observeDns, DEFAULT_DNS_SERVERS, type DnsChange, type DnsObservation, type DnsRecords, type MakeResolver, type Severity } from "./dns.ts";
 import { judgeCert, tlsProbe, type CertBaseline, type CertFinding, type CertInfo, type TlsProbe } from "./cert.ts";
 import { dappScan, defaultScanner, type RunScan, type ScanResult } from "./onchainos.ts";
+import { advance, baselineFrom, fetchIssuances, judgeCt, newIssuances, type CtBaseline, type CtFetch, type CtFinding, type FetchLike } from "./ct.ts";
 import { errorText } from "./util.ts";
 
 export type Level = "ok" | Severity | "unknown";
@@ -18,6 +19,7 @@ export interface Baseline {
   recordedAt: string;
   dns: DnsRecords;
   cert?: CertBaseline;
+  ct?: CtBaseline;
 }
 
 export interface SignalConfig {
@@ -26,11 +28,15 @@ export interface SignalConfig {
   dnsServers?: string[];
   cert?: boolean;
   scan?: boolean;
+  /** Certificate Transparency (default on): a certificate issued for the domain before the site changes */
+  ct?: boolean;
+  /** CT is a public API; ask at most this often (default 10 min) */
+  ctIntervalMs?: number;
   /** the OnchainOS scan is an API call; run it at most this often (default 10 min) */
   scanIntervalMs?: number;
   /** overwrite an existing baseline (still only when recording is allowed) */
   rebaseline?: boolean;
-  deps?: { resolver?: MakeResolver; tls?: TlsProbe; runScan?: RunScan; now?: () => number };
+  deps?: { resolver?: MakeResolver; tls?: TlsProbe; runScan?: RunScan; ctFetch?: FetchLike; now?: () => number };
 }
 
 export interface SignalsReport {
@@ -42,9 +48,17 @@ export interface SignalsReport {
   dns?: { observation: DnsObservation; changes: DnsChange[]; level: Level };
   cert?: { info?: CertInfo; error?: string; findings: CertFinding[]; level: Level };
   scan?: { result: ScanResult; cachedAt: string; level: Level };
+  /** a failed lookup is reported as `error` and never raises the level: CT is an early warning, not a gate */
+  ct?: { source?: string; seen?: number; error?: string; findings: CtFinding[]; level: Level };
+}
+
+interface CtOutcome {
+  fetch?: CtFetch;
+  error?: string;
 }
 
 const scanCache = new Map<string, { at: number; result: ScanResult }>();
+const ctCache = new Map<string, { at: number; fetch: CtFetch }>();
 
 export function isLocalHost(host: string): boolean {
   const h = host.replace(/^\[|\]$/g, "").toLowerCase();
@@ -107,6 +121,10 @@ export async function checkSignals(site: URL, mayRecord: boolean, cfg: SignalCon
     wantScan ? cachedScan(host, cfg, deps.runScan ?? scanner().run, now) : undefined,
   ]);
 
+  const wantCt = cfg.ct !== false && site.protocol === "https:";
+  const ctDomain = dnsObs.ok && dnsObs.records.zone ? dnsObs.records.zone : host.split(".").slice(-2).join(".");
+  const ct = wantCt ? await cachedCt(ctDomain, baseline?.ct, cfg, deps.ctFetch, now).then((fetch): CtOutcome => ({ fetch }), (err: unknown): CtOutcome => ({ error: errorText(err) })) : undefined;
+
   const report: SignalsReport = { level: "ok", baseline: "none" };
 
   const changes = dnsObs.ok && baseline ? diffObservation(baseline.dns, dnsObs) : [];
@@ -117,6 +135,15 @@ export async function checkSignals(site: URL, mayRecord: boolean, cfg: SignalCon
     const findings = cert.info ? judgeCert(cert.info, baseline?.cert) : [];
     // optional signal: a failed probe is reported (info) but does not make the whole check "unknown"
     report.cert = { ...cert, findings, level: cert.info ? worst(findings.map((f) => f.severity)) : "info" };
+  }
+  if (ct) {
+    const findings = ct.fetch && baseline?.ct ? judgeCt(newIssuances(ct.fetch, baseline.ct, host), baseline.ct) : [];
+    report.ct = {
+      ...(ct.fetch ? { source: ct.fetch.source, seen: ct.fetch.issuances.length } : {}),
+      ...(ct.error ? { error: ct.error } : {}),
+      findings,
+      level: ct.error ? "info" : worst(findings.map((f) => f.severity)),
+    };
   }
   if (scan) {
     report.scan = { result: scan.result, cachedAt: new Date(scan.at).toISOString(), level: scan.result.status === "malicious" ? "alert" : scan.result.status === "clean" ? "ok" : "info" };
@@ -143,10 +170,12 @@ export async function checkSignals(site: URL, mayRecord: boolean, cfg: SignalCon
         recordedAt: new Date(now()).toISOString(),
         dns: dnsObs.records,
         ...(cert?.info ? { cert: { fingerprint256: cert.info.fingerprint256, issuer: cert.info.issuer } } : {}),
+        ...ctBaselineOf(ct?.fetch, host),
       });
       report.baseline = "recorded";
       report.dns.changes = [];
       report.dns.level = "ok";
+      if (report.ct && !report.ct.error) report.ct = { ...report.ct, findings: [], level: "ok" };
       if (report.cert?.info) {
         report.cert.findings = judgeCert(report.cert.info);
         report.cert.level = worst(report.cert.findings.map((f) => f.severity));
@@ -154,10 +183,16 @@ export async function checkSignals(site: URL, mayRecord: boolean, cfg: SignalCon
     }
   } else if (baseline) {
     report.baseline = "compared";
+    // Only a MATCH moves the CT cursor, and never past an alert: an unknown issuer stays flagged until a human
+    // re-baselines. A baseline written before CT existed gets its CT part the first time it can be recorded.
+    if (mayRecord && ct?.fetch && !report.ct?.findings.some((f) => f.severity === "alert")) {
+      const next = baseline.ct ? advance(baseline.ct, ct.fetch, host) : baselineFrom(ct.fetch, host);
+      if (next && JSON.stringify(next) !== JSON.stringify(baseline.ct)) await saveBaseline(cfg.statePath!, { ...baseline, ct: next });
+    }
   }
 
   // No baseline to compare against is "unknown" for DNS only when one was asked for.
-  const levels: Level[] = [report.dns.level, report.cert?.level ?? "ok", report.scan?.level ?? "ok"];
+  const levels: Level[] = [report.dns.level, report.cert?.level ?? "ok", report.scan?.level ?? "ok", report.ct?.level ?? "ok"];
   if (cfg.statePath && report.baseline === "not-recorded") levels.push("unknown");
   report.level = worst(levels);
   return report;
@@ -181,7 +216,22 @@ async function cachedScan(host: string, cfg: SignalConfig, run: RunScan, now: ()
   return entry;
 }
 
-/** Test helper: forget cached scan results. */
+function ctBaselineOf(f: CtFetch | undefined, host: string): { ct: CtBaseline } | Record<string, never> {
+  const b = f && baselineFrom(f, host);
+  return b ? { ct: b } : {};
+}
+
+async function cachedCt(domain: string, base: CtBaseline | undefined, cfg: SignalConfig, fetchFn: FetchLike | undefined, now: () => number): Promise<CtFetch> {
+  const key = `${domain}|${base?.source ?? ""}:${base?.lastId ?? ""}`;
+  const hit = ctCache.get(key);
+  if (hit && now() - hit.at < (cfg.ctIntervalMs ?? 600_000)) return hit.fetch;
+  const fetch = await fetchIssuances(domain, base && { source: base.source, id: base.lastId }, fetchFn);
+  ctCache.set(key, { at: now(), fetch });
+  return fetch;
+}
+
+/** Test helper: forget cached scan and CT results. */
 export function clearScanCache(): void {
   scanCache.clear();
+  ctCache.clear();
 }

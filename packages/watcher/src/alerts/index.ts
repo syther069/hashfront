@@ -7,6 +7,8 @@ import type { CheckResult } from "../watch.ts";
 import { emptyState, KIND, settle, step, type AlertState, type Channel, type Hex, type IncidentConfig, type Observation, type Outgoing, type TeamNotice } from "./incident.ts";
 import { assertNoLink, sendTelegram, type TelegramConfig } from "./telegram.ts";
 import { readAlertText, sendTapeSend } from "./tapesend.ts";
+import { canonicalHash } from "../signals/util.ts";
+import type { CtFinding } from "../signals/ct.ts";
 import { checkReporterGas, type GasStatus } from "./gas.ts";
 import type { OkxClient } from "@hashfront/okx/client";
 
@@ -43,6 +45,7 @@ const TEAM_TEXT: Record<TeamNotice, string> = {
   "signal-warn": "A domain signal needs a look: a new address network, a new certificate issuer, an invalid certificate, or resolvers disagreeing.",
   "phishing-flag": "OnchainOS security dapp-scan flags the website as malicious. Check the domain now and send a community warning if it is confirmed.",
   "attacker-addresses": "Addresses found only in the hijacked website, not in the approved release (best-effort; obfuscated ones are missed). Check them before telling users:",
+  "new-certificate": "A new TLS certificate was issued for the domain (Certificate Transparency). If your team did not request it, check the registrar and DNS now.",
   "dns-unknown": "The domain's DNS records could not be checked for several checks in a row (resolvers failing, or no usable baseline). DNS changes are not being detected.",
   "reporter-gas-low": "The reporter wallet is low on OKB: fewer than 3 onchain alerts left at the current gas price. Top it up so a hijack alert can't fail for lack of gas.",
 };
@@ -60,9 +63,19 @@ const FALLBACK: Record<1 | 2 | 3, { subject: string; body: string }> = {
   3: { subject: "Hashfront: all clear", body: "The usual website of this protocol matches the approved release again." },
 };
 
+/** Issuer and names come from a public log, so they are cut down to plain characters and a short length. */
+const plain = (v: string) => v.replace(/[^A-Za-z0-9 .*,'()-]/g, "").slice(0, 80);
+function ctNoticeText(findings: CtFinding[]): string | undefined {
+  const f = findings.filter((x) => x.severity !== "info");
+  if (!f.length) return undefined;
+  return f.slice(0, 3).map((x) => `${x.severity}: ${plain(x.message)}; names: ${x.hosts.map(plain).join(", ")}`).join("\n");
+}
+
 export function observationOf(r: CheckResult, extra: { reporterGasLow?: boolean } = {}): Observation {
   const s = r.signals;
   const dnsObs = s?.dns?.observation;
+  const ctFindings = s?.ct?.findings ?? [];
+  const ctNotice = ctNoticeText(ctFindings);
   return {
     status: r.verdict.status,
     contentObserved: r.verdict.observed as Hex,
@@ -71,6 +84,9 @@ export function observationOf(r: CheckResult, extra: { reporterGasLow?: boolean 
     dnsVerified: Boolean(dnsObs?.ok && s?.baseline === "compared"),
     dnsUnknown: Boolean(s && !s.skipped && (s.dns?.level === "unknown" || s.baseline === "not-recorded")),
     ...(dnsObs?.ok ? { dnsObserved: dnsObs.observed } : {}),
+    ctAlert: ctFindings.some((f) => f.severity === "alert"),
+    ...(ctNotice ? { ctNotice } : {}),
+    ...(ctFindings.length ? { ctObserved: canonicalHash(ctFindings) } : {}),
     scanMalicious: s?.scan?.result.status === "malicious",
     ...(r.suspects?.length ? { suspects: r.suspects } : {}),
     ...(extra.reporterGasLow !== undefined ? { reporterGasLow: extra.reporterGasLow } : {}),
