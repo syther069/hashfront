@@ -55,3 +55,27 @@ jobs:
         working-directory: contracts
         # fork tests read X Layer mainnet; they run locally (README) so CI never depends on a public RPC
         run: forge test --no-match-path "test/fork/*"
+
+  e2e:
+    name: End-to-end (status page and Guard, on a local anvil)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    # The watcher end-to-end tests fork X Layer mainnet through a public RPC, so they stay a local check (AGENTS.md).
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.7.1
+      - run: npm ci --no-audit --no-fund
+      - name: Build the demo dApp (good and hijack copies)
+        run: |
+          npm run build -w apps/demo-dapp
+          npm run build:hijack -w apps/demo-dapp
+      - name: Status page, approve page, suspects and batch revoke (Playwright on the runner's Chrome, anvil)
+        run: npm run test:e2e -w apps/web
+      - name: Hashfront Guard (the real extension in Chrome, both script orders)
+        run: xvfb-run -a npm run test:e2e -w apps/guard

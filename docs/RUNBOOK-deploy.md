@@ -37,3 +37,12 @@ forge script script/DeployXLayer.s.sol --rpc-url xlayer --account hashfront-depl
 `alert()` reserves 400k gas for each TapeSend delivery and reverts with `AlertGas` if less is available.
 - **Why:** without this, a gas estimate settles on a limit where the hub call fails inside `try/catch` and only the event lands. The fork rehearsal hit exactly that.
 - **Size:** a real alert to one recipient uses about 264k gas (219k before `lastAlert` storage was added in task F).
+
+## Status page deploy (Vercel)
+
+```powershell
+pwsh scripts/deploy-status.ps1 -NoDeploy   # build with the gate baked in, check it, copy; deploys nothing
+pwsh scripts/deploy-status.ps1             # the same, then deploy to production and probe /api/status
+```
+
+The page must be built with `VITE_GATE` and `VITE_NETWORK`, or it silently becomes the generic page that takes the gate from the link; the script sets them from the config and refuses to deploy if the gate is not in the bundle. The destination folder (default `..\..\deploy\hashfront-status`, outside this repo) must already be a linked Vercel project (`vercel link` once). The config is `hashfront.json`, or the tracked `hashfront.example.json` (the public values of the live deployment) on a fresh clone.

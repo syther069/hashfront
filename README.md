@@ -5,6 +5,8 @@
 **When a DeFi frontend gets hijacked, Hashfront catches it in under a minute, warns users on Telegram and on chain, and keeps a copy of the approved app that the attacker cannot touch.**
 
 > **Success metric:** hijack to onchain alert in **under 60 s** (measured on mainnet: 51 s, see the [rehearsal](docs/evidence-hijack-rehearsal.md)) · false alarms: **0 per day** (not yet measured: the 24 h run is pending, see [`docs/metrics.md`](docs/metrics.md)) · detection still works **with OKX down**.
+>
+> The minute is for a **changed website**. Certificate and registry changes (new certificate, nameservers, DNSSEC) are polled about every 10 minutes, so those alerts can take that long; DNS changes are checked on every pass.
 
 Live: [status page](https://hashfront-status.vercel.app) · [verified copy](https://4-2-409.tapekit.org/) · [protected demo site](https://hashswap-demo.vercel.app)
 
@@ -55,6 +57,7 @@ Users can't see the difference, and teams usually find out from their users.
 - **Address extraction is best-effort triage.** Addresses that are obfuscated or fetched at runtime are missed.
 - **A user-side guard protects only users who installed it.** It is a reference for wallets to read the same feed.
 - **One vantage point.** The watcher sees what its own network sees. A hijacker who serves the real page to the watcher is caught only through the DNS and certificate signals.
+- **One onchain alert text covers several causes.** A new certificate, a registry change and a DNS change all open the same incident and send alert kind 2, whose fixed onchain text says "domain records changed". The team's Telegram notice names the real cause. The text lives in the deployed gate and cannot change without a redeploy.
 - **The guardian pause is an experiment, and fork-only.** `contracts/src/DemoVault.sol` and `--guardian-call` show a protocol letting one narrow key pause its own contract when an incident is confirmed (once per incident; only the owner unpauses). The watcher refuses it on X Layer mainnet, because one false positive pausing a live protocol is a liability. It is not deployed anywhere.
 - **Batch revoke may ask for an EIP-7702 upgrade.** Tested with a real OKX Wallet on X Layer: it revoked two approvals in one confirmation, but only after the wallet asked to upgrade the account with EIP-7702 (with its own risk warning). The page says so, and the per-row Revoke button sends a plain approval of 0 with no upgrade. See [`docs/evidence-batch-revoke-okx-wallet.md`](docs/evidence-batch-revoke-okx-wallet.md).
 - **Pricing is a hypothesis.** It is not validated by paying customers; see [`docs/business.md`](docs/business.md).
@@ -104,7 +107,7 @@ Hashfront uses OKX's APIs on X Layer for the parts where a hijack hurts most. De
 |---|---|---|
 | **Am I affected?** | Security: approvals | During an alert, users paste their address and see every X Layer token approval. The ones not to the protocol's contracts are flagged (plain wallet, unlisted, or flagged by OKX), with a one-click revoke |
 | **Approve with a second opinion** | Security: transaction scan | A maintainer sees OKX's pre-execution scan of the exact `approve` transaction before signing; a warning must be acknowledged |
-| **Alerts that get through** | Onchain Gateway: simulate, gas price, broadcast, orders | Every alert is simulated by OKX, priced by the gateway, and broadcast through OKX and the RPC at once (same bytes, so never a double alert) |
+| **Alerts that get through** | Onchain Gateway: simulate, gas price, broadcast, orders | The alert path simulates with OKX, prices with the gateway, and broadcasts the same signed bytes through OKX and the RPC (so never a double alert). **Tested against a mock gateway on a fork and with live read-only calls; the first live mainnet alert through it is the E2 proof, not yet done** ([runbook](docs/RUNBOOK-hijack-e2.md)) |
 | **Never out of gas** | Balance + Gateway gas price | The watcher warns the team before the reporter wallet can't pay for 3 alerts |
 | **Phishing signal anywhere** | Security: dapp-scan | The domain blacklist check runs over REST, so it also works in GitHub Actions |
 | **Costs in dollars** | Market: price | Fees on the status page, the approve page and `hashfront init` show OKB and USD |
@@ -128,7 +131,7 @@ flowchart LR
     DNS["DNS / TLS / OnchainOS dapp-scan"] --> Watcher
     CT["Certificate Transparency<br/>(CertSpotter, crt.sh)"] --> Watcher
     RDAP["Registry: RDAP + DNSSEC (DoH)"] --> Watcher
-    Watcher -->|"MISMATCH x2"| Alert["ReleaseGate.alert(): TapeSend + Telegram<br/>(sent through the OKX Gateway)"]
+    Watcher -->|"MISMATCH x2"| Alert["ReleaseGate.alert(): TapeSend + Telegram<br/>(OKX Gateway path, mock-tested; live proof pending)"]
     Watcher -->|"changed files"| Suspects["suspected attacker addresses"]
     Alert --> Status["status page + badge: ALERT"]
   end

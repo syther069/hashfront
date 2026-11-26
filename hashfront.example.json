@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "network": "xlayer",
+  "site": "https://hashswap-demo.vercel.app/",
+  "name": "HashSwap",
+  "gate": "0xAF96CA14DB35420BF46b6Ab8feB513306B7D80F6",
+  "policyId": "4",
+  "container": "0x5D96417d287f6F10979b63b80504926DE4CE92bA",
+  "verifiedUrl": "https://4-2-409.tapekit.org/",
+  "maintainers": [
+    "0xA45100B86A94de8Ff90B25e45FF80a75Cf7Cc59A",
+    "0xf8B3202b9751792eCE97A7E5Cb11D1d130846348",
+    "0x700651353AC4287AE5761a1703f9BCfF9d0C12d8"
+  ],
+  "uploader": "0xA1DA93A3fD135FC83E3B5f69dCb9d73babde5306",
+  "reporter": "0xeC8b730F7E9F69e53FE257473c4809Ef93dc46de",
+  "timelockSeconds": 600,
+  "deployedAt": "2026-11-20T08:41:56.574Z",
+  "statusPage": "https://hashfront-status.vercel.app/",
+  "builderCode": "15ld85k6825od6yr"
+}
