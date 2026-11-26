@@ -10,6 +10,8 @@ import type { Approval } from "@hashfront/okx/risk";
 import type { Target } from "./config.ts";
 import { short } from "./chain.ts";
 import { useApprovals, useOkbPrice } from "./okx.ts";
+import { Dots } from "./ui.tsx";
+import { Check, Wallet, WarningTriangle } from "./icons.tsx";
 import { dataSuffix } from "./wallet.ts";
 import { messageOf, PartialRevoke, revokeAll, type RevokeCall } from "./revoke.ts";
 
@@ -33,7 +35,7 @@ export function Affected({ target, alertOpen }: { target: Target; alertOpen: boo
   if (!api.isSuccess) return null;
 
   return (
-    <section className={`card ${alertOpen ? "affected urgent" : "affected"}`} data-testid="affected">
+    <section id="affected" className={`card ${alertOpen ? "affected urgent" : "affected"}`} data-testid="affected">
       <h2>{alertOpen ? "Did you use the site during the alert? Check your approvals" : "Check your token approvals"}</h2>
       <p className="muted">
         A hijacked site usually asks for a token approval to the attacker. This lists every approval your address has on X Layer, from the OKX Onchain OS
@@ -52,8 +54,20 @@ export function Affected({ target, alertOpen }: { target: Target; alertOpen: boo
       </div>
       {note.done && <p className="good small" data-testid="revoke-all-done">{note.done}</p>}
       {note.error && <p className="error small" data-testid="revoke-all-error">{note.error}</p>}
-      {address && q.isPending && <p className="muted">Asking OKX for approvals of {short(address)}…</p>}
-      {q.isError && <p className="error">Could not check approvals right now: {q.error.message}</p>}
+      {address && q.isPending && (
+        <p className="muted" role="status">
+          <Dots small /> Asking OKX for approvals of {short(address)}…
+        </p>
+      )}
+      {q.isError && (
+        <p className="error" role="alert">
+          <WarningTriangle size={18} style={{ verticalAlign: "-3px", marginRight: 4 }} />
+          Could not check approvals right now: {q.error.message}{" "}
+          <button type="button" className="link" onClick={() => void q.refetch()}>
+            Try again
+          </button>
+        </p>
+      )}
       {q.data && (
         q.data.approvals.length === 0 ? (
           <p className="good" data-testid="affected-none">No token approvals on X Layer for {short(address ?? "")}.</p>
@@ -69,8 +83,8 @@ function ConnectButton() {
   const { connectors, connect } = useConnect();
   const c = connectors[0];
   return c ? (
-    <button type="button" onClick={() => connect({ connector: c })}>
-      Connect wallet
+    <button type="button" className="primary" onClick={() => connect({ connector: c })}>
+      <Wallet /> Connect wallet
     </button>
   ) : null;
 }
@@ -79,7 +93,7 @@ function ApprovalTable({ rows, target, owner, wrongChain, canRevoke, onNote }: {
   const explorer = target.chain.blockExplorers?.default.url;
   return (
     <div className="scroll">
-      <table data-testid="affected-table">
+      <table className="stack" data-testid="affected-table">
         <thead>
           <tr>
             <th>Token</th>
@@ -92,11 +106,14 @@ function ApprovalTable({ rows, target, owner, wrongChain, canRevoke, onNote }: {
         <tbody>
           {rows.map((a) => (
             <tr key={`${a.token}-${a.spender}`} className={`risk-${a.risk}`} data-testid={`approval-${a.risk}`}>
-              <td>{a.symbol}</td>
-              <td className="mono">{explorer ? <a href={`${explorer}/address/${a.spender}`} target="_blank" rel="noopener noreferrer">{short(a.spender)}</a> : short(a.spender)}</td>
-              <td>{a.amount}</td>
-              <td>
-                <span className={`pill risk ${a.risk}`}>{RISK_LABEL[a.risk]}</span>
+              <td data-label="Token">{a.symbol}</td>
+              <td className="mono" data-label="Spender">{explorer ? <a href={`${explorer}/address/${a.spender}`} target="_blank" rel="noopener noreferrer">{short(a.spender)}</a> : short(a.spender)}</td>
+              <td data-label="Amount">{a.amount}</td>
+              <td data-label="Risk">
+                <span className={`pill risk ${a.risk}`}>
+                  {a.risk === "trusted" ? <Check size={14} /> : <WarningTriangle size={14} />}
+                  {RISK_LABEL[a.risk]}
+                </span>
                 <div className="muted small">{a.reasons.join("; ")}</div>
               </td>
               <td>{a.risk !== "trusted" && <RevokeButton approval={a} owner={owner} disabled={!canRevoke || wrongChain} target={target} />}</td>

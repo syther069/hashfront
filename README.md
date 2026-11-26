@@ -170,6 +170,7 @@ flowchart LR
 | [`circuits/`](circuits) | TAP-02 netlist builder and evaluator, and the policy circuit with its [truth table](circuits/out/truth-table.md) |
 | [`packages/cli/`](packages/cli) | `hashfront`: `init` (one-command onboarding), `preflight`, the release flow, `status`, `verify`; signs with Foundry keystores; [GitHub Action template](packages/cli/templates/hashfront-release.yml) |
 | [`packages/watcher/`](packages/watcher) | `hashfront-watch`: content comparison, DNS, certificate, Certificate Transparency, registry (RDAP, DNSSEC) and OnchainOS signals, suspected attacker addresses, incident state machine, Telegram and TapeSend alerts, per-check timings |
+| [`docs/design-system.md`](docs/design-system.md) | the design system of the status page, approve page and Guard: tokens, rules and how they are measured |
 | [`apps/web/`](apps/web) | status page (suspects card, watcher health, "Am I affected?" with batch revoke), maintainer approve page, the embeddable badge, and the Vercel Functions `/api/approvals`, `/api/suspects`, `/api/status`, `/api/tx-scan`, `/api/price` |
 | [`apps/guard/`](apps/guard) | Hashfront Guard: Manifest V3 extension that blocks wallet signatures on a hijacked site ([limits](apps/guard/README.md)) |
 | [`apps/demo-dapp/`](apps/demo-dapp) | HashSwap, the demo protocol frontend (plus the hijack copy used in the rehearsal) |
