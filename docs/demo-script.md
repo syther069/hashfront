@@ -11,7 +11,7 @@ Record at 1080p, with the browser zoom at 110 % so small text stays readable. Op
 
 Speak slowly. Every claim on screen should be something the viewer can see.
 
-**Draft v2 (Nov 25).** We have no domain of our own, so the live hijack is a *hosting compromise* of `hashswap-demo.vercel.app` (someone deploys a bad build to the protocol's host). Say so in the voice-over; do not call it a DNS hijack. CT, RDAP and DNSSEC are shown only from recorded fixtures, with a caption saying so. Rows marked (later) need a task that is not merged yet; cut them if it is not.
+**Draft v3 (Nov 26).** We have no domain of our own, so the live hijack is a *hosting compromise* of `hashswap-demo.vercel.app` (someone deploys a bad build to the protocol's host). Say so in the voice-over; do not call it a DNS hijack. CT, RDAP and DNSSEC are shown only from recorded fixtures, with a caption saying so. Everything in the table is built and on `main`; the live run and its checklist are in [`RUNBOOK-hijack-e2.md`](RUNBOOK-hijack-e2.md). Rehearse twice before recording.
 
 | Time | On screen | Voice-over |
 |---|---|---|
@@ -21,10 +21,12 @@ Speak slowly. Every claim on screen should be something the viewer can see.
 | 0:50-1:05 | Terminal: watcher MATCH lines; status page: live release and the 32-row policy | "The watcher compares every file the site serves with the approved bytes on chain, every 30 seconds." |
 | 1:05-1:25 | Deploy `deploy/hashswap-hijack`; reload the site: router `0xBAd0...0Bad` | "Now someone deploys a bad build to the protocol's host. It looks the same, but the Swap approval goes to an attacker." |
 | 1:25-1:55 | Terminal: MISMATCH, then the alert through the OKX Gateway with an order id; Telegram; OKLink tx | "The watcher sees it in 21 seconds and alerts on the second check, on Telegram and on chain, with fixed text and no links." |
-| 1:55-2:20 | Status page: Open alert and the suspected attacker address (later: B1); Guard overlay blocks the signature (later: U1) | "It names the address that appears only in the hijacked build, and the browser guard stops the signature before it is made." |
-| 2:20-2:40 | "Am I affected?" with a wallet, then revoke (later: C1 revoke all) | "A user pastes their address, sees the risky approvals and revokes them in one step." |
+| 1:55-2:20 | Status page: Open alert and the suspected attacker address; the Guard overlay on the hijacked tab, then Swap and Connect: the signature is rejected | "It names the address that appears only in the hijacked build, and the browser guard stops the signature before it is made." |
+| 2:20-2:40 | "Am I affected?" with a wallet, then "Revoke all risky" | "A user pastes their address, sees the risky approvals and revokes them in one step." |
 | 2:40-2:50 | Verified copy on tapekit.org: real router `0xA1DA...` | "The verified copy comes from chain. The attacker cannot touch it." |
-| 2:50-3:00 | Restore, all-clear on Telegram; limits slide (what it does not catch) | "One all-clear when it is fixed. It protects the content of the site; a hijack of a domain we do not control is not shown live." |
+| 2:50-3:00 | Restore, all-clear on Telegram; limits slide (what it does not catch: see the README's limitations) | "One all-clear when it is fixed. It protects the content of the site; a hijack of a domain we do not control is not shown live." |
+
+On screen, for one second each, with a caption that says "recorded fixtures": the CT and registry signals (`node packages/watcher/src/main.ts --site https://example.org --signals-only --signals dns,ct,registry`, read-only on `example.org`). Do not suggest they fired on `hashswap-demo.vercel.app`.
 
 ## If you record the hijack live
 
