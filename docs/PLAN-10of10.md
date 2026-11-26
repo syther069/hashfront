@@ -385,17 +385,17 @@ Restructure the top of `README.md` in this order (keep the existing sections bel
 | Task | Status | Branch |
 |---|---|---|
 | E1 setup (templates) | done, merged (PR 1); issues still to create | |
-| D2 skeleton + limitations | done, merged; final README, source links and diagram pending | |
+| D2 README | final pass done (sources verified Nov 26, diagram, features, tests); the D3 quotes and the real metrics numbers are still to add | `docs/d2-final` |
 | U0 own domain | **SKIPPED by the user (Nov 25).** A1/A2 run on fixtures; demo is a hosting compromise | |
 | D3 research | DM templates merged; user sends 8-10 DMs and logs replies by Dec 3 | |
 | D4 script draft | draft merged (hosting-compromise flow) | |
 | B1 suspects | done, merged (PR 3); `/api/suspects` deployed | |
 | U1 Guard extension + `/api/status` | done, merged; `/api/status` deployed; not in Chrome Web Store | |
 | C1 batch revoke | done, merged (PR 4); real-wallet batch untested, not deployed | |
-| A1 CT monitor | done on a branch, PR to open; fixtures and `example.org` only (no own domain) | `feat/a1-ct-monitor` |
+| A1 CT monitor | done, on main; fixtures and `example.org` only (no own domain) | |
 | A3 vantage probe | **CUT** | |
-| A2 DNSSEC + RDAP | done on a branch (stacked on A1), PR to open; fixtures and `example.org` only | `feat/a2-dnssec-rdap` |
-| D1 metrics | code done on a branch (stacked on A2), PR to open; **the 24 h run on the PC is still to do** (needs the user's OKX keys and the PC on) | `feat/d1-metrics` |
+| A2 DNSSEC + RDAP | done, on main; fixtures and `example.org` only | |
+| D1 metrics | code done, on main; **the 24 h run on the PC is still to do** (needs the user's OKX keys, reporter password and the PC on) | |
 | E2, E3 | not started | |
 | C2 guardian | optional stretch, fork only | |
 
