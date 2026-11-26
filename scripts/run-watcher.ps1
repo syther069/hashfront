@@ -3,11 +3,13 @@
 # at hidden prompts and live only in this process. State (signals baseline, incidents) is kept in .watcher/.
 #
 #   pwsh scripts/run-watcher.ps1 -Site https://hashswap-demo.vercel.app/ -TelegramChat 6977270776
+#   add -Log .watcher/watch.jsonl to keep one JSON line per check, for scripts/metrics-report.ts (the lines hold no secrets)
 param(
     [Parameter(Mandatory = $true)][string]$Site,
     [string]$TelegramChat = '',
     [int]$Interval = 30,
-    [string]$Reporter = 'hashfront-reporter'
+    [string]$Reporter = 'hashfront-reporter',
+    [string]$Log = ''
 )
 $ErrorActionPreference = 'Stop'
 Set-Location (Join-Path $PSScriptRoot '..')
@@ -39,7 +41,12 @@ try {
     )
     if ($TelegramChat) { $watchArgs += "--telegram-chat=$TelegramChat" }
     Write-Host "Watching $Site against gate $($cfg.gate) every $Interval s. Ctrl+C stops it." -ForegroundColor Cyan
-    node @watchArgs
+    if ($Log) {
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent (Join-Path (Get-Location) $Log)) | Out-Null
+        node @watchArgs | Tee-Object -FilePath $Log -Append
+    } else {
+        node @watchArgs
+    }
 } finally {
     Remove-Item Env:TELEGRAM_BOT_TOKEN -ErrorAction SilentlyContinue
 }

@@ -55,6 +55,47 @@ export function credentialsFromEnv(env: NodeJS.ProcessEnv = process.env): OkxCre
 
 type Query = Record<string, string | number | undefined>;
 
+/** One finished call (all retries included), for latency reporting. No query string, key or body is ever kept. */
+export interface OkxCall {
+  path: string;
+  /** wall time of the whole call, retries and waits included */
+  ms: number;
+  ok: boolean;
+  /** HTTP status when there was a response */
+  status?: number;
+  attempts: number;
+  at: string;
+}
+
+const RING_SIZE = 500;
+const ring: OkxCall[] = [];
+let pending: OkxCall[] = [];
+
+function record(call: OkxCall): void {
+  ring.push(call);
+  if (ring.length > RING_SIZE) ring.shift();
+  pending.push(call);
+  if (pending.length > RING_SIZE) pending.shift();
+}
+
+/** The most recent calls of every client in this process, oldest first. */
+export function okxMetrics(): OkxCall[] {
+  return [...ring];
+}
+
+/** Calls made since the last drain; the watcher reports these once per check. */
+export function drainOkxMetrics(): OkxCall[] {
+  const out = pending;
+  pending = [];
+  return out;
+}
+
+/** Test helper. */
+export function resetOkxMetrics(): void {
+  ring.length = 0;
+  pending = [];
+}
+
 export class OkxClient {
   readonly #creds: OkxCredentials;
   readonly #o: Required<Omit<OkxClientOptions, "fetch">> & { fetch: typeof fetch };
@@ -97,8 +138,24 @@ export class OkxClient {
 
   async #send<T>(method: "GET" | "POST", requestPath: string, body: string | undefined, retry: boolean): Promise<T> {
     const path = requestPath.split("?")[0]!;
+    const started = Date.now();
+    const track: { attempts: number } = { attempts: 0 };
+    try {
+      const result = await this.#sendInner<T>(method, requestPath, body, retry, track);
+      record({ path, ms: Date.now() - started, ok: true, attempts: track.attempts, at: new Date(started).toISOString() });
+      return result;
+    } catch (err) {
+      const status = err instanceof OkxError ? err.status : undefined;
+      record({ path, ms: Date.now() - started, ok: false, ...(status !== undefined ? { status } : {}), attempts: track.attempts, at: new Date(started).toISOString() });
+      throw err;
+    }
+  }
+
+  async #sendInner<T>(method: "GET" | "POST", requestPath: string, body: string | undefined, retry: boolean, track: { attempts: number }): Promise<T> {
+    const path = requestPath.split("?")[0]!;
     let last: OkxError | undefined;
     for (let attempt = 1; attempt <= (retry ? this.#o.attempts : 1); attempt++) {
+      track.attempts = attempt;
       if (attempt > 1) await this.#o.sleep(250 * 2 ** (attempt - 2) + Math.floor(Math.random() * 100));
       const timestamp = this.#o.now().toISOString();
       const headers: Record<string, string> = {
