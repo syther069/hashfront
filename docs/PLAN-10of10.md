@@ -397,6 +397,7 @@ Restructure the top of `README.md` in this order (keep the existing sections bel
 | A2 DNSSEC + RDAP | done, on main; fixtures and `example.org` only | |
 | D1 metrics | code done, on main; **the 24 h run on the PC is still to do** (needs the user's OKX keys, reporter password and the PC on) | |
 | E2 live proof | prepared: `docs/RUNBOOK-hijack-e2.md`, hijack build staged locally; **needs the user's "go", keys and the reporter password** | |
+| Audit (ponytail) Nov 26 | must and should fixes 1-12 done on `fix/audit-must-should`; nice-to-have 13-17 not done | `fix/audit-must-should` |
 | E3 quality pass | fresh clone on Nov 26: `npm ci` 24 s, typecheck 27 s, unit tests 12 s, 65 s in all, all green; functions checked (no secrets in the web bundle, inputs validated); full gate and submission still to do | |
 | CHANGELOG | written | `docs/e2-runbook-changelog` |
 | C2 guardian | done, fork only (DemoVault + `--guardian-call`; refused on mainnet; not deployed anywhere) | `feat/c2-guardian` |

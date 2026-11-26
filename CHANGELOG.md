@@ -15,6 +15,8 @@ Hashfront for X Layer TapeOut Accelerate. Dates are 2026. This is written for th
 
 - **Guardian pause, fork only (C2).** `DemoVault` (the guardian can only pause, only the owner unpauses, both deposit and withdraw stop while paused) and `--guardian-call` / `--guardian-account` in the watcher: one pause per incident, sent through the OKX Gateway path when OKX is configured. Refused on X Layer mainnet. Tested in Foundry (9 tests, including a re-entrancy attempt and a fuzz test) and end to end on an anvil fork.
 
+- **Audit fixes (Nov 26).** Certificate and registry lookups now run beside the other signals and are left alone for 5 minutes after a failure, so a dead public API no longer slows every check or the alert. `/api/approvals` no longer waits for the suspects lookup beyond 3 s. Approved files are read back from the chain 8 ranges at a time. The Guard's secret handshake works in either content-script order (the old order-dependent version made signing wait 4 s on a clean page and broke the override button; found by test), and its method list is tested as shipped. Added `hashfront.example.json`, `scripts/deploy-status.ps1`, a CI end-to-end job, and wording fixes in the README (the Gateway path is mock-tested, the minute is for content changes, one alert text covers several causes).
+
 ### Changed
 - `--signals` now defaults to `dns,cert,scan,ct,registry`.
 - `ApprovalRisk` has a new top level, `attacker`.
