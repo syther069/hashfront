@@ -176,11 +176,17 @@ function RevokeAll({ rows, owner, onNote }: { rows: Approval[]; owner: Address; 
     }
   }
   return (
-    <p>
-      <button type="button" className="danger" disabled={Boolean(busy)} onClick={() => void run()} data-testid="revoke-all">
-        {busy ?? `Revoke all risky (${risky.length})`}
-      </button>
-    </p>
+    <>
+      <p>
+        <button type="button" className="danger" disabled={Boolean(busy)} onClick={() => void run()} data-testid="revoke-all">
+          {busy ?? `Revoke all risky (${risky.length})`}
+        </button>
+      </p>
+      <p className="muted small" data-testid="revoke-all-note">
+        To batch, some wallets (OKX Wallet) first ask to upgrade the account with EIP-7702 and show a risk warning. If you would rather not, skip this
+        button and use the Revoke button on each row: that sends a plain approval of 0, one confirmation each.
+      </p>
+    </>
   );
 }
 
