@@ -462,6 +462,44 @@ test("the status page has a watcher health card with the metrics report link", a
   await page.close();
 });
 
+// ---------------------------------------------------------------- header wallet: connect, then disconnect with the exit icon
+test("the header connects a wallet and shows the address with a disconnect (exit) button that disconnects it", async () => {
+  const q = `?gate=${h.gate}&network=local&rpc=${encodeURIComponent(h.rpc)}`;
+  const page = await walletPage(ADDR.m1);
+  await page.goto(`${base}index.html${q}#/`);
+  const connect = page.getByTestId("wallet-connect");
+  await connect.waitFor();
+  await page.locator("header").screenshot({ path: SHOTS ? path.join(SHOTS, "header-disconnected.png") : "/dev/null" }).catch(() => undefined);
+  assert.match(await connect.innerText(), /Connect wallet/);
+  await connect.click();
+  const address = page.getByTestId("wallet-address");
+  await address.waitFor();
+  assert.equal(await address.getAttribute("title"), ADDR.m1);
+  const out = page.getByTestId("wallet-disconnect");
+  await page.locator("header").screenshot({ path: SHOTS ? path.join(SHOTS, "header-connected.png") : "/dev/null" }).catch(() => undefined);
+  assert.match((await out.getAttribute("aria-label")) ?? "", /^Disconnect /);
+  assert.equal(await out.locator("svg").count(), 1, "an exit icon, no text");
+  const box = await out.boundingBox();
+  assert.ok(box && box.width >= 36 && box.height >= 36, `the disconnect target is ${box?.width}x${box?.height}`);
+  await out.click();
+  await page.getByTestId("wallet-connect").waitFor();
+  assert.equal(await page.getByTestId("wallet-address").count(), 0, "the address is gone after disconnecting");
+  await page.close();
+});
+
+test("the wallet in the header is the same connection as the approve page", async () => {
+  const q = `?gate=${h.gate}&network=local&rpc=${encodeURIComponent(h.rpc)}`;
+  const page = await walletPage(ADDR.m2);
+  await page.goto(`${base}index.html${q}#/approve/1`);
+  await page.getByTestId("wallet-connect").click();
+  await page.getByText("(maintainer M2)").waitFor({ timeout: 8000 }).catch(async (e: unknown) => {
+    throw new Error(`${String(e).slice(0, 80)}; the page says: ${(await page.locator("body").innerText()).replace(/\n+/g, " | ").slice(0, 900)}`);
+  });
+  await page.getByTestId("wallet-disconnect").click();
+  await page.getByTestId("connect").first().waitFor(); // the approve page offers to connect again
+  await page.close();
+});
+
 // ---------------------------------------------------------------- design: the page reflows, with no sideways scroll, at phone and desktop widths
 test("the status page reflows at 320, 390, 768 and 1280 px with an open alert, suspects and approvals, and the first action is reachable", async () => {
   const q = `?gate=${h.gate}&network=local&rpc=${encodeURIComponent(h.rpc)}`;
