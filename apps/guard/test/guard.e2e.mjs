@@ -15,7 +15,7 @@ const guardDir = path.resolve(here, "..");
 const demo = path.resolve(here, "../../demo-dapp");
 const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css" };
 
-let server, base, tmp, userData, context;
+let server, base, tmp, userData, context, extDir;
 let serving = "dist"; // which demo build the "normal host" serves right now
 let feed = { mode: "ok" }; // what /api/status answers
 let goodRoot;
@@ -50,6 +50,7 @@ before(async () => {
   // a temporary copy of the extension that watches this local host and reads this local feed
   tmp = await mkdtemp(path.join(tmpdir(), "hf-guard-"));
   const ext = path.join(tmp, "ext");
+  extDir = ext;
   await cp(guardDir, ext, { recursive: true, filter: (s) => !/[\\/](test|node_modules)([\\/]|$)/.test(s) });
   const manifest = JSON.parse(await readFile(path.join(ext, "manifest.json"), "utf8"));
   manifest.host_permissions = ["http://127.0.0.1/*"];
@@ -79,9 +80,9 @@ after(async () => {
   if (tmp) await rm(tmp, { recursive: true, force: true });
 });
 
-async function open() {
-  feed = feed ?? { mode: "ok" };
-  const page = await context.newPage();
+async function open(ctx = context) {
+  const page = await ctx.newPage();
+  if (process.env.GUARD_DEBUG) page.on("console", (m) => console.log("PAGE", m.type(), m.text().slice(0, 200))), page.on("pageerror", (e) => console.log("PAGEERROR", e.message.slice(0, 200)));
   await page.goto(base);
   await page.waitForLoadState("load");
   await page.waitForTimeout(1500); // the verdict needs the feed and the page hash
@@ -160,4 +161,45 @@ test("feed down: nothing is blocked and no overlay is shown", async () => {
   assert.equal(await page.locator("hashfront-guard").count(), 0);
   assert.equal(await sign(page), "sent");
   await page.close();
+});
+
+test("the handshake works whichever content script runs first (the isolated one first, here)", async () => {
+  // the same extension with its two content scripts listed in the other order
+  const flipped = path.join(tmp, "ext-flipped");
+  await cp(extDir, flipped, { recursive: true });
+  const manifest = JSON.parse(await readFile(path.join(flipped, "manifest.json"), "utf8"));
+  manifest.content_scripts.reverse();
+  await writeFile(path.join(flipped, "manifest.json"), JSON.stringify(manifest));
+  const ctx2 = await chromium.launchPersistentContext(path.join(tmp, "profile-flipped"), {
+    channel: process.env.PW_CHANNEL ?? (process.platform === "win32" ? "msedge" : "chrome"),
+    headless: false,
+    args: ["--headless=new", `--disable-extensions-except=${flipped}`, `--load-extension=${flipped}`],
+  });
+  try {
+    await ctx2.addInitScript(() => {
+      window.__calls = [];
+      window.ethereum = { request: async (a) => (window.__calls.push(a.method), a.method === "eth_chainId" ? "0xc4" : "0xhash") };
+    });
+    // a clean site: the wallet must be reached at once, not after the 4 s hold of an unanswered handshake
+    serving = "dist";
+    feed = { mode: "ok" };
+    let page = await open(ctx2);
+    const t0 = Date.now();
+    assert.equal(await sign(page), "sent");
+    assert.ok(Date.now() - t0 < 1500, `the signing request waited ${Date.now() - t0} ms`);
+    await page.close();
+
+    // a hijacked site: blocked, and the real click still lifts the block
+    serving = "dist-hijack";
+    feed = { mode: "alert" };
+    page = await open(ctx2);
+    assert.equal(await sign(page), "rejected:4001");
+    for (let i = 0; i < 3; i++) await page.keyboard.press("Tab");
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(300);
+    assert.equal(await sign(page), "sent", "the override works too");
+    await page.close();
+  } finally {
+    await ctx2.close();
+  }
 });

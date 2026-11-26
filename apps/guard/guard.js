@@ -6,8 +6,16 @@
   const secret = Array.from(crypto.getRandomValues(new Uint8Array(32)), (b) => b.toString(16).padStart(2, "0")).join("");
 
   const tell = (data) => window.dispatchEvent(new CustomEvent("hf-verdict", { detail: JSON.stringify(data) }));
-  // guard-main.js is listed first in the manifest, so it is already listening
-  window.dispatchEvent(new CustomEvent("hf-init", { detail: secret }));
+  // The page-world script may or may not be listening yet, whichever way the browser orders the two content scripts.
+  // Send the secret now, and again when it says hello, until it has acknowledged. After the acknowledgement a hello
+  // is ignored, so a page script cannot ask for the secret later.
+  let acked = false;
+  const sendInit = () => window.dispatchEvent(new CustomEvent("hf-init", { detail: secret }));
+  window.addEventListener("hf-ack", () => (acked = true));
+  window.addEventListener("hf-hello", () => {
+    if (!acked) sendInit();
+  });
+  sendInit();
   const allow = () => tell({ block: false, secret });
 
   let reply;

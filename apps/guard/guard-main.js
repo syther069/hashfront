@@ -7,6 +7,9 @@
 // it; the Guard defends against generic drainers, not against an attacker built to beat it.
 (function () {
   "use strict";
+  // The only list of signing methods in the extension. It lives here because this script runs in the page's world, where
+  // lib.js is not available (the browser loads a file only once per page, and lib.js is needed in the isolated world).
+  // test/guard-main.test.js runs this very file against a fake wallet and states the expected methods itself.
   const SIGNING = new Set([
     "eth_sendTransaction", "eth_sendRawTransaction", "eth_sign", "personal_sign", "eth_signTypedData",
     "eth_signTypedData_v3", "eth_signTypedData_v4", "wallet_sendCalls", "wallet_sendTransaction",
@@ -19,7 +22,10 @@
   const decided = new Promise((resolve) => (release = resolve));
 
   window.addEventListener("hf-init", (e) => {
-    if (secret === null && typeof e.detail === "string" && e.detail.length >= 32) secret = e.detail;
+    if (secret === null && typeof e.detail === "string" && e.detail.length >= 32) {
+      secret = e.detail;
+      window.dispatchEvent(new CustomEvent("hf-ack"));
+    }
   });
   window.addEventListener("hf-verdict", (e) => {
     let d;
@@ -59,6 +65,10 @@
       // a frozen provider cannot be wrapped; the Guard then cannot protect that wallet
     }
   }
+
+  // The isolated script may have started before this one and sent its secret into the void: say hello, and it answers.
+  // Both content scripts run before any page script, so no page script can be listening for the answer.
+  window.dispatchEvent(new CustomEvent("hf-hello"));
 
   // window.ethereum and window.okxwallet (the demo dapp prefers the latter): wrap what is there, what is assigned later,
   // and what appears by other means (polled briefly)
