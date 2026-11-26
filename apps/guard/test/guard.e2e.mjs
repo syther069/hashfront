@@ -13,6 +13,12 @@ import { chromium } from "@playwright/test";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const guardDir = path.resolve(here, "..");
 const demo = path.resolve(here, "../../demo-dapp");
+/**
+ * Extensions only load in Chromium-family builds that still honour --load-extension: Edge does, and so does Playwright's
+ * own Chromium (PW_CHANNEL=chromium, what CI uses). Branded Chrome from version 137 ignores the flag, so it is not the default.
+ */
+const browserChoice = () => (process.env.PW_CHANNEL === "chromium" ? {} : { channel: process.env.PW_CHANNEL ?? (process.platform === "win32" ? "msedge" : "chromium") });
+
 const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css" };
 
 let server, base, tmp, userData, context, extDir;
@@ -63,7 +69,7 @@ before(async () => {
 
   userData = path.join(tmp, "profile");
   context = await chromium.launchPersistentContext(userData, {
-    channel: process.env.PW_CHANNEL ?? (process.platform === "win32" ? "msedge" : "chrome"),
+    ...browserChoice(),
     headless: false,
     args: ["--headless=new", `--disable-extensions-except=${ext}`, `--load-extension=${ext}`],
   });
@@ -171,7 +177,7 @@ test("the handshake works whichever content script runs first (the isolated one 
   manifest.content_scripts.reverse();
   await writeFile(path.join(flipped, "manifest.json"), JSON.stringify(manifest));
   const ctx2 = await chromium.launchPersistentContext(path.join(tmp, "profile-flipped"), {
-    channel: process.env.PW_CHANNEL ?? (process.platform === "win32" ? "msedge" : "chrome"),
+    ...browserChoice(),
     headless: false,
     args: ["--headless=new", `--disable-extensions-except=${flipped}`, `--load-extension=${flipped}`],
   });
