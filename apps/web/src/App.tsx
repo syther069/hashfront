@@ -4,6 +4,9 @@ import { WagmiProvider } from "wagmi";
 import { resolveTarget, linkFor, type Target } from "./config.ts";
 import { wagmiConfigFor } from "./wallet.ts";
 import { Status } from "./Status.tsx";
+import { Lock } from "./icons.tsx";
+import { short } from "./chain.ts";
+import { Logo } from "./ui.tsx";
 import { Approve } from "./Approve.tsx";
 
 type Route = { page: "status" } | { page: "approve"; id: bigint };
@@ -47,23 +50,35 @@ function WithWallet({ target, route }: { target: Target; route: Route }) {
 function Shell({ target, children }: { target?: Target; children: React.ReactNode }) {
   return (
     <div className="page">
+      <a className="skip" href="#main">
+        Skip to content
+      </a>
       <header className="top">
-        <a className="brand" href={target ? linkFor(target, "#/") : "#/"}>
-          <svg viewBox="0 0 16 16" aria-hidden="true">
-            <path d="M8 1l6 2.5v4C14 11 11.4 14 8 15 4.6 14 2 11 2 7.5v-4z" />
-          </svg>
-          Hashfront
+        <a className="brand" href={target ? linkFor(target, "#/") : "#/"} aria-label="Hashfront, status page">
+          <Logo />
+          <span className="wordmark">
+            hash<span>front</span>
+          </span>
         </a>
         {target && (
           <span className="net">
-            {target.chain.name} · gate <code>{target.gate}</code>
+            <Lock size={16} /> {target.chain.name} · gate{" "}
+            {target.chain.blockExplorers ? (
+              <a href={`${target.chain.blockExplorers.default.url}/address/${target.gate}`} target="_blank" rel="noopener noreferrer">
+                <code title={target.gate}>{short(target.gate)}</code>
+              </a>
+            ) : (
+              <code title={target.gate}>{short(target.gate)}</code>
+            )}
           </span>
         )}
       </header>
-      <main>{children}</main>
+      <main id="main">{children}</main>
       <footer>
-        Every value on this page is read from {target?.chain.name ?? "the chain"} in your browser. The policy table is computed from the circuit's
-        stored netlist.
+        <p>
+          Every value on this page is read from {target?.chain.name ?? "the chain"} in your browser. The policy table is computed from the circuit's
+          stored netlist.
+        </p>
       </footer>
     </div>
   );

@@ -122,6 +122,7 @@ test("open alert: overlay, and eth_sendTransaction is rejected with 4001 while r
   assert.equal(await sign(page), "rejected:4001");
   assert.equal(await page.evaluate(() => window.ethereum.request({ method: "eth_chainId" })), "0xc4");
   assert.deepEqual(await page.evaluate(() => window.__calls), ["eth_chainId"], "the signing request never reached the wallet");
+  if (process.env.GUARD_SHOTS) await page.screenshot({ path: path.join(process.env.GUARD_SHOTS, "guard-overlay.png") });
   await page.close();
 });
 

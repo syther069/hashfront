@@ -7,6 +7,8 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   base: "./",
   plugins: [react()],
+  // `npm run dev` only: the Vercel Functions are not served by Vite, so /api goes to the deployed status host (read-only data)
+  server: { proxy: { "/api": { target: "https://hashfront-status.vercel.app", changeOrigin: true } } },
   build: {
     target: "es2022",
     assetsInlineLimit: 0,

@@ -8,6 +8,8 @@ import { ago, ALERT_KIND, approvers, contextFor, readSnapshot, short, type Relea
 import { inputNames, isPolicyV1, truthTable, type Row } from "./truthTable.ts";
 import { Affected } from "./Affected.tsx";
 import { useOkbPrice, useSuspects } from "./okx.ts";
+import { Check, Copy, OpenNewWindow, ShieldAlert, ShieldCheck } from "./icons.tsx";
+import { ErrorPanel, Loading } from "./ui.tsx";
 
 type Table = { ok: true; rows: Row[]; v1: boolean } | { ok: false; error: string };
 
@@ -32,14 +34,14 @@ export function useSnapshot(target: Target) {
 
 export function Status({ target }: { target: Target }) {
   const q = useSnapshot(target);
-  if (q.isPending) return <p className="muted">Reading the gate…</p>;
-  if (q.isError) return <p className="error">Could not read the gate: {q.error.message}</p>;
+  if (q.isPending) return <Loading what="Reading the gate from the chain" />;
+  if (q.isError) return <ErrorPanel title="Could not read the gate" detail={q.error.message} onRetry={() => void q.refetch()} />;
   const s = q.data;
   const table = tableOf(s);
   const alertOpen = s.lastAlert.kind === 1 || s.lastAlert.kind === 2;
   return (
     <>
-      <AlertBanner s={s} />
+      <StatusHero s={s} copyUrl={dewebUrl(target, s.info.policyId)} />
       {alertOpen && <Suspects target={target} />}
       {alertOpen && <Affected target={target} alertOpen />}
       <Overview s={s} target={target} v1={table.ok && table.v1} />
@@ -64,7 +66,10 @@ function Suspects({ target }: { target: Target }) {
   };
   return (
     <section className="card suspects" data-testid="suspects">
-      <h2>Suspected attacker addresses</h2>
+      <h2>
+        <ShieldAlert className="icon" style={{ verticalAlign: "-4px", marginRight: 8 }} />
+        Suspected attacker addresses
+      </h2>
       <p className="muted">
         Found in the files the website serves now, and in none of the approved release's files. This is a best-effort comparison, so an address the attacker
         hid or loads at runtime is not listed. Never approve or send anything to these.
@@ -72,8 +77,15 @@ function Suspects({ target }: { target: Target }) {
       <ul className="plain">
         {list.map((a) => (
           <li key={a} className="mono" data-testid="suspect">
-            {a} {explorer && <a href={`${explorer}/address/${a}`} target="_blank" rel="noopener noreferrer">OKLink</a>}{" "}
-            <button type="button" onClick={() => copy(a)}>{copied === a ? "Copied" : "Copy"}</button>
+            <span>{a}</span>
+            {explorer && (
+              <a href={`${explorer}/address/${a}`} target="_blank" rel="noopener noreferrer">
+                OKLink <OpenNewWindow size={16} />
+              </a>
+            )}
+            <button type="button" onClick={() => copy(a)}>
+              {copied === a ? <Check /> : <Copy />} {copied === a ? "Copied" : "Copy"}
+            </button>
           </li>
         ))}
       </ul>
@@ -99,22 +111,56 @@ function WatcherHealth({ s }: { s: Snapshot }) {
   );
 }
 
-function AlertBanner({ s }: { s: Snapshot }) {
+/** The first thing on the page: is there an alert, and what should a visitor do now. */
+function StatusHero({ s, copyUrl }: { s: Snapshot; copyUrl: string | undefined }) {
   const a = s.lastAlert;
   const open = a.kind === 1 || a.kind === 2;
   if (open) {
     return (
-      <section className="banner danger" data-testid="alert-state">
-        <strong>Open alert: {ALERT_KIND[a.kind]}</strong>, reported {ago(s.now - a.at)} ago while v{a.release.toString()} was live. Do not connect your wallet
-        on the usual website until the team confirms. Use the verified copy below.
+      <section className="hero" data-state="alert" data-testid="alert-state">
+        <div className="hero-head">
+          <ShieldAlert size={32} />
+          <div>
+            <h1>Open alert: {ALERT_KIND[a.kind]}</h1>
+            <p>
+              Reported {ago(s.now - a.at)} ago while v{a.release.toString()} was live. Do not connect your wallet on the usual website until the team
+              confirms. Use the verified copy.
+            </p>
+          </div>
+        </div>
+        <div className="hero-actions">
+          {copyUrl && (
+            <a className="btn primary" href={copyUrl} target="_blank" rel="noopener noreferrer">
+              Open the verified copy <OpenNewWindow size={18} />
+            </a>
+          )}
+          {/* with no verified copy to point to (a gate without a DeWEB name), checking approvals is the one primary action */}
+          <a className={copyUrl ? "btn" : "btn primary"} href="#affected">
+            Check my approvals
+          </a>
+        </div>
       </section>
     );
   }
   return (
-    <section className="banner calm" data-testid="alert-state">
-      <strong>No open alert.</strong>{" "}
-      {a.kind === 3 ? `The watcher reported all clear ${ago(s.now - a.at)} ago.` : "The watcher has not reported a problem."} This is not a live check of the
-      website: a stopped watcher looks the same.
+    <section className="hero" data-state="ok" data-testid="alert-state">
+      <div className="hero-head">
+        <ShieldCheck size={32} />
+        <div>
+          <h1>No open alert.</h1>
+          <p>
+            {a.kind === 3 ? `The watcher reported all clear ${ago(s.now - a.at)} ago.` : "The watcher has not reported a problem."} This is not a live check of
+            the website: a stopped watcher looks the same.
+          </p>
+        </div>
+      </div>
+      {copyUrl && (
+        <div className="hero-actions">
+          <a className="btn" href={copyUrl} target="_blank" rel="noopener noreferrer">
+            Open the verified copy <OpenNewWindow size={18} />
+          </a>
+        </div>
+      )}
     </section>
   );
 }
@@ -171,7 +217,7 @@ function Releases({ s, target }: { s: Snapshot; target: Target }) {
   return (
     <section className="card">
       <h2>Releases</h2>
-      <table data-testid="releases">
+      <table className="stack" data-testid="releases">
         <thead>
           <tr>
             <th>Release</th>
@@ -185,15 +231,15 @@ function Releases({ s, target }: { s: Snapshot; target: Target }) {
         <tbody>
           {s.releases.map((r) => (
             <tr key={r.id.toString()} data-testid={`release-${r.id}`}>
-              <td>v{r.id.toString()}</td>
-              <td>
+              <td data-label="Release">v{r.id.toString()}</td>
+              <td data-label="State">
                 <span className={`pill ${r.status}`}>{stateLabel(r)}</span>
               </td>
-              <td data-testid={`approvals-${r.id}`}>
+              <td data-label="Approvals" data-testid={`approvals-${r.id}`}>
                 {r.approvalCount}/3 {r.approvalCount > 0 && <span className="muted">({approvers(r.approvals).map((i) => `M${i + 1}`).join(", ")})</span>}
               </td>
-              <td>{timelockText(r, s)}</td>
-              <td>{r.status === "pending" ? (r.wouldAllow ? <span className="good">yes</span> : "no") : "–"}</td>
+              <td data-label="Timelock">{timelockText(r, s)}</td>
+              <td data-label="Can go live now">{r.status === "pending" ? (r.wouldAllow ? <span className="good">yes</span> : "no") : "–"}</td>
               <td>{r.status === "pending" && <a href={linkFor(target, `#/approve/${r.id}`)}>review</a>}</td>
             </tr>
           ))}

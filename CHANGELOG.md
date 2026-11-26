@@ -17,6 +17,8 @@ Hashfront for X Layer TapeOut Accelerate. Dates are 2026. This is written for th
 
 - **Audit fixes (Nov 26).** Certificate and registry lookups now run beside the other signals and are left alone for 5 minutes after a failure, so a dead public API no longer slows every check or the alert. `/api/approvals` no longer waits for the suspects lookup beyond 3 s. Approved files are read back from the chain 8 ranges at a time. The Guard's secret handshake works in either content-script order (the old order-dependent version made signing wait 4 s on a clean page and broke the override button; found by test), and its method list is tested as shipped. Added `hashfront.example.json`, `scripts/deploy-status.ps1`, a CI end-to-end job, and wording fixes in the README (the Gateway path is mock-tested, the minute is for content changes, one alert text covers several causes).
 
+- **UI/UX redesign (Nov 26).** One dark design system for the status page, approve page, badge and the Guard overlay: three palette colours at 60/30/10, Space Grotesk, Iconoir icons, bouncing-dots loading, a status banner that leads with the one primary action, a user-first page order, retry on every failure, 44 px controls, stacked tables on phones, the Hashfront logo and favicon. Contrast, spacing, fonts and 320-1280 px reflow are tested. See `docs/design-system.md`.
+
 ### Changed
 - `--signals` now defaults to `dns,cert,scan,ct,registry`.
 - `ApprovalRisk` has a new top level, `attacker`.

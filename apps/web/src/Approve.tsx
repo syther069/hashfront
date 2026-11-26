@@ -12,6 +12,8 @@ import { linkFor, publicClientFor, type Target } from "./config.ts";
 import { approvers, contextFor, short, slotOf } from "./chain.ts";
 import { dataSuffix } from "./wallet.ts";
 import { useOkbPrice, usd, useTxScan } from "./okx.ts";
+import { ErrorPanel, Loading } from "./ui.tsx";
+import { ArrowLeft, Check, Wallet } from "./icons.tsx";
 
 type Loaded = { ok: true; manifest: Manifest; name: string } | { ok: false; error: string; name: string };
 
@@ -35,7 +37,7 @@ function errorText(e: unknown): string {
 
 export function Approve({ target, id }: { target: Target; id: bigint }) {
   // A maintainer action must never run inside someone else's page (clickjacking).
-  if (window.top !== window.self) return <p className="error">This page cannot be used inside a frame. Open it directly.</p>;
+  if (window.top !== window.self) return <ErrorPanel title="This page cannot be used inside a frame" detail="A maintainer action must run on its own page. Open this page directly in a browser tab." />;
   return <ApproveInner target={target} id={id} />;
 }
 
@@ -69,8 +71,8 @@ function ApproveInner({ target, id }: { target: Target; id: bigint }) {
   const { switchChain } = useSwitchChain();
   const { data: walletClient } = useWalletClient();
 
-  if (q.isPending) return <p className="muted">Reading release v{id.toString()}…</p>;
-  if (q.isError) return <p className="error">Could not read release v{id.toString()}: {q.error.message}</p>;
+  if (q.isPending) return <Loading what={`Reading release v${id.toString()} from the chain`} />;
+  if (q.isError) return <ErrorPanel title={`Could not read release v${id.toString()}`} detail={q.error.message} onRetry={() => void q.refetch()} />;
   const { info, release, live } = q.data;
 
   const verified = proposed?.ok === true && matchesOnchain(proposed.manifest, release.root, release.totalChunks);
@@ -123,7 +125,10 @@ function ApproveInner({ target, id }: { target: Target; id: bigint }) {
   return (
     <>
       <p>
-        <a href={linkFor(target, "#/")}>← status</a>
+        <a href={linkFor(target, "#/")}>
+          <ArrowLeft size={18} style={{ verticalAlign: "-4px", marginRight: 4 }} />
+          Back to status
+        </a>
       </p>
       <section className="card">
         <h2>Review release v{id.toString()}</h2>
@@ -172,8 +177,8 @@ function ApproveInner({ target, id }: { target: Target; id: bigint }) {
           <div className="row">
             {/* connect on whatever chain the wallet is on; a wrong chain then shows a switch button instead of a stuck connect */}
             {connectors.map((c) => (
-              <button key={c.uid} type="button" onClick={() => connect({ connector: c })} data-testid="connect">
-                Connect {c.name}
+              <button key={c.uid} type="button" className="primary" onClick={() => connect({ connector: c })} data-testid="connect">
+                <Wallet /> Connect {c.name}
               </button>
             ))}
             {connectError && <span className="error">{connectError.message}</span>}
@@ -208,7 +213,11 @@ function ApproveInner({ target, id }: { target: Target; id: bigint }) {
         )}
         <div className="row">
           <button type="button" className="primary" disabled={blockers.length > 0 || busy !== undefined} onClick={() => void send("approve")} data-testid="approve">
-            {busy === "approve" ? "Approving…" : `Approve v${id} (root ${short(release.root)})`}
+            {busy === "approve" ? "Approving…" : (
+              <>
+                <Check /> {`Approve v${id} (root ${short(release.root)})`}
+              </>
+            )}
           </button>
           {!closed && slot !== undefined && !wrongChain && (
             <>

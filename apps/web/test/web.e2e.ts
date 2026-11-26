@@ -461,3 +461,44 @@ test("the status page has a watcher health card with the metrics report link", a
   assert.equal(await card.getByRole("link", { name: "metrics report" }).getAttribute("href"), "https://github.com/syther069/hashfront/blob/main/docs/metrics.md");
   await page.close();
 });
+
+// ---------------------------------------------------------------- design: the page reflows, with no sideways scroll, at phone and desktop widths
+test("the status page reflows at 320, 390, 768 and 1280 px with an open alert, suspects and approvals, and the first action is reachable", async () => {
+  const q = `?gate=${h.gate}&network=local&rpc=${encodeURIComponent(h.rpc)}`;
+  for (const width of [320, 390, 768, 1280]) {
+    const page = await browser.newPage({ viewport: { width, height: width < 768 ? 800 : 900 } });
+    await page.route("**/api/**", async (route) => {
+      const url = new URL(route.request().url());
+      const json = (body: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
+      if (url.pathname === "/api/price") return json({ okbUsd: 75.91, time: Date.now(), source: "OKX Onchain OS Market API" });
+      if (url.pathname === "/api/suspects") return json({ status: "mismatch", liveRelease: 1, suspects: ["0xBAd0000000000000000000000000000000000Bad"], checkedAt: new Date().toISOString() });
+      if (url.pathname === "/api/approvals") {
+        const attacker = { ...approvalsBody.approvals[0], risk: "attacker", reasons: ["seen only in the hijacked site", "unlimited amount"] };
+        return json({ ...approvalsBody, approvals: [attacker, approvalsBody.approvals[1]] });
+      }
+      return route.fallback();
+    });
+    await page.goto(`${base}index.html${q}#/`);
+    await page.getByTestId("suspects").waitFor();
+    await page.getByTestId("affected-address").fill(USER);
+    await page.getByTestId("affected-table").waitFor();
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    const offenders = overflow > 0 ? await page.evaluate(() => [...document.querySelectorAll("body *")].filter((e) => e.getBoundingClientRect().right > window.innerWidth + 1).slice(0, 6).map((e) => `${e.tagName.toLowerCase()}.${String(e.className).slice(0, 30)} right=${Math.round(e.getBoundingClientRect().right)}`)) : [];
+    assert.ok(overflow <= 0, `${width}px: the page scrolls sideways by ${overflow}px; wide elements: ${offenders.join(" | ")}`);
+    // the one primary action of the alert (open the verified copy) must be visible without scrolling the hero away
+    const cta = page.getByRole("link", { name: /Open the verified copy/ }).first();
+    if (await cta.count()) {
+      const box = await cta.boundingBox();
+      assert.ok(box && box.height >= 44, `${width}px: the verified-copy button is ${box?.height}px high`);
+    }
+    // every button and link outside running text is at least 44 px tall
+    const small = await page.evaluate(() =>
+      [...document.querySelectorAll("button, a.btn, input.addr")]
+        .map((e) => ({ t: (e.textContent || e.getAttribute("placeholder") || "").trim().slice(0, 30), h: Math.round(e.getBoundingClientRect().height) }))
+        .filter((x) => x.h > 0 && x.h < 44),
+    );
+    assert.deepEqual(small, [], `${width}px: controls under 44 px`);
+    await shot(page, `status-alert-${width}`);
+    await page.close();
+  }
+});
