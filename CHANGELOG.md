@@ -13,6 +13,8 @@ Hashfront for X Layer TapeOut Accelerate. Dates are 2026. This is written for th
 - **Metrics (D1).** Per-call OKX latency ring, a `perf` field in every watcher JSON line, `scripts/metrics-report.ts` (uptime, p50/p95, incidents, time to alert, false alarms) and a watcher health card. The 24 hour run has not been done; `docs/metrics.md` says so.
 - **Docs.** README for judges (verified incident sources, alternatives, limitations), `docs/business.md`, interview templates, demo script, E2 runbook, pull request and issue templates.
 
+- **Guardian pause, fork only (C2).** `DemoVault` (the guardian can only pause, only the owner unpauses, both deposit and withdraw stop while paused) and `--guardian-call` / `--guardian-account` in the watcher: one pause per incident, sent through the OKX Gateway path when OKX is configured. Refused on X Layer mainnet. Tested in Foundry (9 tests, including a re-entrancy attempt and a fuzz test) and end to end on an anvil fork.
+
 ### Changed
 - `--signals` now defaults to `dns,cert,scan,ct,registry`.
 - `ApprovalRisk` has a new top level, `attacker`.
@@ -20,7 +22,7 @@ Hashfront for X Layer TapeOut Accelerate. Dates are 2026. This is written for th
 ### Not done, on purpose
 - No own domain, so CT, registry and DNSSEC signals cannot show a hijack on `*.vercel.app`; they are tested on fixtures and read-only `example.org` lookups.
 - A second vantage point (A3) was cut after the review.
-- The guardian pause (C2) is a fork-only experiment and is never deployed on mainnet.
+- The guardian pause (C2) is a fork-only experiment: it is not deployed anywhere and the watcher refuses it on mainnet.
 
 ## Before Phase 9
 
