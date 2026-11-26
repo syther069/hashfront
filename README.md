@@ -4,7 +4,7 @@
 
 **When a DeFi frontend gets hijacked, Hashfront catches it in under a minute, warns users on Telegram and on chain, and keeps a copy of the approved app that the attacker cannot touch.**
 
-> **Success metric:** hijack to onchain alert in **under 60 s** (measured on mainnet: 51 s, see the [rehearsal](docs/evidence-hijack-rehearsal.md)) · false alarms: **0 per day** (24 h run pending, see [`docs/metrics.md`](docs/metrics.md) when D1 lands) · detection still works **with OKX down**.
+> **Success metric:** hijack to onchain alert in **under 60 s** (measured on mainnet: 51 s, see the [rehearsal](docs/evidence-hijack-rehearsal.md)) · false alarms: **0 per day** (not yet measured: the 24 h run is pending, see [`docs/metrics.md`](docs/metrics.md)) · detection still works **with OKX down**.
 
 Live: [status page](https://hashfront-status.vercel.app) · [verified copy](https://4-2-409.tapekit.org/) · [protected demo site](https://hashswap-demo.vercel.app)
 
@@ -14,14 +14,14 @@ Every frontend release is approved by maintainers through a **TapeOut policy cir
 
 An attacker doesn't need to touch the contracts. They take over the domain at the registrar or DNS host and serve an identical-looking app that asks the wallet for an unlimited approval to their address.
 
-| When | What happened | Loss |
-|---|---|---|
-| Oct 30-31, 2026 | Name.com registrar hijack: 12 DeFi sites taken over at once | about $138K |
-| Nov 2025 | Aerodrome and Velodrome domains hijacked; DNSSEC was stripped first | $700K+ |
-| Feb 2026 | 5 protocols hijacked in one week (reported by Blockaid) | not totalled |
-| ongoing | eth.limo / EasyDNS-style DNS and registrar takeovers | n/a |
+| When | What happened | Loss | Source |
+|---|---|---|---|
+| Oct 30-31, 2026 | Name.com registrar hijack: 12 DeFi sites taken over at once and sent to a drainer (Name.com later confirmed 15 domains) | about $138K | [The Block](https://theblock.co/news/defi/2026-10-31-hackers-hijack-a-dozen-defi-websites-all-registered-with-name-com-and-steal-about-138000-432251), [Crypto Briefing](https://cryptobriefing.com/name-com-restores-hijacked-defi-domains/), [Forklog](https://forklog.com/en/news/hackers-hijack-domains-of-15-defi-projects) |
+| Nov 21-22, 2025 | Aerodrome and Velodrome domains hijacked; one preliminary report says DNSSEC was removed | one report: about $700K | [The Block](https://www.theblock.co/news/ecosystems/2025-11-22-top-dexs-aerodrome-velodrome-hit-with-front-end-compromise-urge-users-to-avoid-main-domains-380037), [Blockaid](https://www.blockaid.io/blog/how-blockaids-customer-data-network-contained-the-aerodrome-dns-attack) |
+| Feb 16-23, 2026 | Five DeFi frontends compromised in one week (OpenEden, Curvance, Smithii, Avantis, Nerochain); OpenEden's domain was moved between registrars | not totalled | [Blockaid](https://blockaid.io/blog/frontend-hijacking-and-the-web2-attack-surface-threatening-web3-protocols) |
+| earlier | eth.limo hijack through a social-engineering breach at EasyDNS | n/a | [The Block](https://www.theblock.co/amp/post/398005/easydns-accepts-responsibility-for-eth-limo-hijack-its-first-social-engineering-breach-in-28-years) |
 
-Sources: The Block, Crypto Briefing and Blockaid reports on these incidents. <!-- TODO(D2 final): paste the exact article URLs and re-check each figure before submission. -->
+Figures are as the sources report them; the root causes are still partly unsettled in the press (for the Aerodrome case the DNSSEC detail comes from one preliminary account, and the $700K from one report). We state what they say and no more.
 
 Users can't see the difference, and teams usually find out from their users.
 
@@ -70,11 +70,12 @@ Users can't see the difference, and teams usually find out from their users.
 
 ## What Hashfront does about it
 
-Hashfront closes three gaps:
+Hashfront closes four gaps:
 
-1. **Know:** a watcher compares every file the normal site serves with the release approved on chain. It also watches DNS, the TLS certificate and the OnchainOS phishing scan, so a registrar hijack is caught even if the attacker shows the watcher the real page.
-2. **Warn:** one alert per incident on Telegram and as an onchain TapeSend message. The text is fixed in the contract and has no links, so a stolen alert key can't send anyone to a phishing page. The status page and the embeddable badge turn red.
-3. **Fall back:** every approved release lives on DeWEB under the protocol's own `.tape` name. During a hijack, users open the pinned verified link and get the exact approved bytes from chain.
+1. **Know:** a watcher compares every file the normal site serves with the release approved on chain. It also watches DNS, the TLS certificate, Certificate Transparency (a new certificate for the domain), the registry (nameservers, transfer locks, DNSSEC through RDAP and DoH) and the OnchainOS phishing scan, so a registrar hijack is caught even if the attacker shows the watcher the real page.
+2. **Warn:** one alert per incident on Telegram and as an onchain TapeSend message. The text is fixed in the contract and has no links, so a stolen alert key can't send anyone to a phishing page. The status page and the embeddable badge turn red, and the team gets the **suspected attacker addresses**: addresses that appear in the served files and in none of the approved release's files (best-effort triage).
+3. **Stop the signature:** the [Hashfront Guard](apps/guard) browser extension reads the same status feed (`/api/status`) and blocks wallet signatures on the hijacked page, before the user signs. It only protects people who installed it; the feed is also what a wallet could read.
+4. **Recover:** during a hijack, users open the pinned verified link and get the exact approved bytes from chain (DeWEB). "Am I affected?" lists their X Layer approvals, ranks the attacker's address first, and **Revoke all risky** removes them in one wallet confirmation when the wallet supports EIP-5792, or one by one when it does not.
 
 ## Proof: hijack rehearsal on mainnet (Nov 20, 2026)
 
@@ -123,8 +124,19 @@ flowchart LR
     Site["normal website"] --> Watcher["hashfront-watch"]
     DeWEB -.->|"approved hashes"| Watcher
     DNS["DNS / TLS / OnchainOS dapp-scan"] --> Watcher
-    Watcher -->|"MISMATCH x2"| Alert["ReleaseGate.alert(): TapeSend + Telegram"]
+    CT["Certificate Transparency<br/>(CertSpotter, crt.sh)"] --> Watcher
+    RDAP["Registry: RDAP + DNSSEC (DoH)"] --> Watcher
+    Watcher -->|"MISMATCH x2"| Alert["ReleaseGate.alert(): TapeSend + Telegram<br/>(sent through the OKX Gateway)"]
+    Watcher -->|"changed files"| Suspects["suspected attacker addresses"]
     Alert --> Status["status page + badge: ALERT"]
+  end
+  subgraph Users["Users"]
+    API["/api/status, /api/suspects<br/>(Vercel Functions, compare site with chain)"]
+    DeWEB -.->|"approved bytes"| API
+    API --> Guard["Hashfront Guard extension:<br/>blocks signatures on the hijacked page"]
+    API --> Status
+    Suspects --> Status
+    Status --> Revoke["Am I affected? + Revoke all risky<br/>(OKX approvals API)"]
   end
 ```
 
@@ -141,7 +153,8 @@ flowchart LR
 | **TapeOut** | the release policy is a taped-out NAND circuit (`circuits/`, TAP-02); the gate evaluates it for every activation |
 | **DeWEB / TapeKit** | releases are stored in the SiteRegistry under the circuit's container; the `.tape` name serves the verified copy |
 | **TapeSend** | onchain alerts through the DeWeb Hub, sent by the gate as the site's container |
-| **OnchainOS** | `security dapp-scan` is one of the watcher's signals (phishing blacklist) |
+| **OnchainOS** | `security dapp-scan` is one of the watcher's signals (phishing blacklist); approvals, transaction scan, gateway, balance and price are used as listed above |
+| **Public data** | CertSpotter and crt.sh (Certificate Transparency), RDAP through rdap.org, and Cloudflare DNS over HTTPS for DNSSEC; each is asked only about the domain we watch, and a failure never blocks detection |
 | **Stack** | Solidity 0.8.28 + Foundry · TypeScript on Node 24 (native type stripping) · viem, ox · React 19, wagmi, Vite · Playwright |
 
 ## Repository
@@ -151,10 +164,12 @@ flowchart LR
 | [`contracts/`](contracts) | `ReleaseGate.sol` (approve → upload → seal → timelock → activate, freeze, cancel, key rotation, migrate, alerts) and the deploy scripts |
 | [`circuits/`](circuits) | TAP-02 netlist builder and evaluator, and the policy circuit with its [truth table](circuits/out/truth-table.md) |
 | [`packages/cli/`](packages/cli) | `hashfront`: `init` (one-command onboarding), `preflight`, the release flow, `status`, `verify`; signs with Foundry keystores; [GitHub Action template](packages/cli/templates/hashfront-release.yml) |
-| [`packages/watcher/`](packages/watcher) | `hashfront-watch`: content comparison, DNS, certificate and OnchainOS signals, incident state machine, Telegram and TapeSend alerts |
-| [`apps/web/`](apps/web) | status page, maintainer approve page and the embeddable badge |
+| [`packages/watcher/`](packages/watcher) | `hashfront-watch`: content comparison, DNS, certificate, Certificate Transparency, registry (RDAP, DNSSEC) and OnchainOS signals, suspected attacker addresses, incident state machine, Telegram and TapeSend alerts, per-check timings |
+| [`apps/web/`](apps/web) | status page (suspects card, watcher health, "Am I affected?" with batch revoke), maintainer approve page, the embeddable badge, and the Vercel Functions `/api/approvals`, `/api/suspects`, `/api/status`, `/api/tx-scan`, `/api/price` |
+| [`apps/guard/`](apps/guard) | Hashfront Guard: Manifest V3 extension that blocks wallet signatures on a hijacked site ([limits](apps/guard/README.md)) |
 | [`apps/demo-dapp/`](apps/demo-dapp) | HashSwap, the demo protocol frontend (plus the hijack copy used in the rehearsal) |
-| [`docs/`](docs) | deploy runbook, rehearsal evidence, demo script |
+| [`scripts/`](scripts) | wallet and watcher runners, `metrics-report.ts` (watcher log to [`docs/metrics.md`](docs/metrics.md)), `pack-guard.ts` |
+| [`docs/`](docs) | deploy runbook, rehearsal and wallet evidence, OKX API evidence, metrics, business case, interviews, demo script |
 
 ## Run it yourself
 
@@ -186,9 +201,9 @@ hashfront init --site https://app.example.org --maintainers 0xM1,0xM2,0xM3 \
 
 | Suite | Count | Covers |
 |---|---|---|
-| `forge test` | 48 | gate lifecycle, policy, fuzzing, manifest compatibility with the CLI, alerts, plus X Layer fork tests (contract holder on the real SiteRegistry, real TapeSend hub) |
-| unit (`npm test`) | 86 | circuit truth table, Merkle and manifest, preflight, keystore, init input, template guards; watcher compare, CDN and adversarial cases, DNS/cert/scan signals, incident state machine; web link rules |
-| end-to-end | 14 | CLI on anvil (5), the CLI against the real SiteRegistry on a fork, `init` + Action command sequence on a fork, demo release on a fork, watcher MATCH→MISMATCH and one-alert-per-incident with the forked TapeSend hub, Playwright on the status, approve and badge pages |
+| `forge test` | 48 (41 without the fork tests) | gate lifecycle, policy, fuzzing, manifest compatibility with the CLI, alerts, plus X Layer fork tests (contract holder on the real SiteRegistry, real TapeSend hub) |
+| unit (`npm test`) | 179 | circuit truth table, Merkle and manifest, preflight, keystore, init input, template guards; watcher compare, CDN and adversarial cases, DNS, certificate, CT, registry and scan signals, suspects, incident state machine, metrics report; OKX client and latency ring; web handlers and revoke logic; Guard request filter and verdict logic |
+| end-to-end | CLI suites, watcher 7, web 12, Guard 6 | CLI on anvil and on a fork (`init`, Action sequence, demo release), watcher MATCH→MISMATCH, one alert per incident and the attacker address from a hijack build, Playwright on the status, approve and badge pages including suspects and revoke-all against a real anvil allowance, and the real extension loaded in Edge against the good and hijack builds |
 
 ## Security model and limits
 
