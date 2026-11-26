@@ -7,6 +7,7 @@ import { Status } from "./Status.tsx";
 import { Lock } from "./icons.tsx";
 import { short } from "./chain.ts";
 import { Logo } from "./ui.tsx";
+import { WalletMenu } from "./WalletMenu.tsx";
 import { Approve } from "./Approve.tsx";
 
 type Route = { page: "status" } | { page: "approve"; id: bigint };
@@ -61,16 +62,19 @@ function Shell({ target, children }: { target?: Target; children: React.ReactNod
           </span>
         </a>
         {target && (
-          <span className="net">
-            <Lock size={16} /> {target.chain.name} · gate{" "}
-            {target.chain.blockExplorers ? (
-              <a href={`${target.chain.blockExplorers.default.url}/address/${target.gate}`} target="_blank" rel="noopener noreferrer">
+          <div className="top-end">
+            <span className="net">
+              <Lock size={16} /> {target.chain.name} · gate{" "}
+              {target.chain.blockExplorers ? (
+                <a href={`${target.chain.blockExplorers.default.url}/address/${target.gate}`} target="_blank" rel="noopener noreferrer">
+                  <code title={target.gate}>{short(target.gate)}</code>
+                </a>
+              ) : (
                 <code title={target.gate}>{short(target.gate)}</code>
-              </a>
-            ) : (
-              <code title={target.gate}>{short(target.gate)}</code>
-            )}
-          </span>
+              )}
+            </span>
+            <WalletMenu />
+          </div>
         )}
       </header>
       <main id="main">{children}</main>
