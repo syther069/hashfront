@@ -56,6 +56,7 @@ Users can't see the difference, and teams usually find out from their users.
 - **A user-side guard protects only users who installed it.** It is a reference for wallets to read the same feed.
 - **One vantage point.** The watcher sees what its own network sees. A hijacker who serves the real page to the watcher is caught only through the DNS and certificate signals.
 - **The guardian pause is an experiment, and fork-only.** `contracts/src/DemoVault.sol` and `--guardian-call` show a protocol letting one narrow key pause its own contract when an incident is confirmed (once per incident; only the owner unpauses). The watcher refuses it on X Layer mainnet, because one false positive pausing a live protocol is a liability. It is not deployed anywhere.
+- **Batch revoke may ask for an EIP-7702 upgrade.** Tested with a real OKX Wallet on X Layer: it revoked two approvals in one confirmation, but only after the wallet asked to upgrade the account with EIP-7702 (with its own risk warning). The page says so, and the per-row Revoke button sends a plain approval of 0 with no upgrade. See [`docs/evidence-batch-revoke-okx-wallet.md`](docs/evidence-batch-revoke-okx-wallet.md).
 - **Pricing is a hypothesis.** It is not validated by paying customers; see [`docs/business.md`](docs/business.md).
 
 ## Live on X Layer mainnet

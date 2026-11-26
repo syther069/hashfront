@@ -416,6 +416,7 @@ test("revoke all, wallet that batches: one wallet_sendCalls, every allowance bec
   assert.deepEqual(await allowances(ADDR.m1), [MAX, MAX, MAX]);
   const page = await revokePage("batch");
   assert.match(await page.getByTestId("revoke-all").innerText(), /Revoke all risky \(3\)/);
+  assert.match(await page.getByTestId("revoke-all-note").innerText(), /EIP-7702[\s\S]*Revoke button on each row/);
   await page.getByTestId("revoke-all").click();
   await outcome(page);
   assert.match(await page.getByTestId("revoke-all-done").innerText(), /3 approvals in one confirmation/);
