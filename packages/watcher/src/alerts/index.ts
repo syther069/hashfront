@@ -10,6 +10,7 @@ import { readAlertText, sendTapeSend } from "./tapesend.ts";
 import { canonicalHash } from "../signals/util.ts";
 import type { CtFinding } from "../signals/ct.ts";
 import type { RegistryFinding } from "../signals/registry.ts";
+import { pauseViaGuardian } from "./guardian.ts";
 import { checkReporterGas, type GasStatus } from "./gas.ts";
 import type { OkxClient } from "@hashfront/okx/client";
 
@@ -22,6 +23,8 @@ export interface AlertConfig {
   telegram?: TelegramConfig;
   /** signer context (reporter key) and recipients for ReleaseGate.alert() */
   tapesend?: { ctx: Context; to: Hex[] };
+  /** optional: pause the protocol's own contract when an incident is confirmed (forks and testnets only) */
+  guardian?: { ctx: Context; target: Hex };
   /** OKX Onchain OS client: balance + gas price for the gas guard, and the gateway for alert delivery */
   okx?: OkxClient;
   /** read-only context for alertPayload() */
@@ -133,7 +136,7 @@ export function validateName(name: string): string {
 export function createDispatcher(cfg: AlertConfig) {
   const channels: Channel[] = [...(cfg.telegram ? (["telegram"] as const) : []), ...(cfg.tapesend ? (["tapesend"] as const) : [])];
   if (!channels.length) throw new Error("alerts need at least one channel (Telegram or TapeSend)");
-  const incident: IncidentConfig = { confirm: cfg.confirm ?? 2, clear: cfg.clear ?? 3, channels, teamChat: Boolean(cfg.telegram?.teamChat) };
+  const incident: IncidentConfig = { confirm: cfg.confirm ?? 2, clear: cfg.clear ?? 3, channels, teamChat: Boolean(cfg.telegram?.teamChat), guardian: Boolean(cfg.guardian) };
   let state: AlertState | undefined;
 
   async function communityText(kind: 1 | 2 | 3, observed: Hex): Promise<string> {
@@ -150,7 +153,16 @@ export function createDispatcher(cfg: AlertConfig) {
     const out: Delivery[] = [];
     for (const channel of m.pending) {
       try {
-        if (channel === "telegram") {
+        if (channel === "guardian") {
+          const g = cfg.guardian!;
+          const r = await pauseViaGuardian(g.ctx, g.target, cfg.okx);
+          const how = r.alreadyPaused ? "already paused" : `${r.tx} via ${r.route}${r.orderId ? ` (OKX order ${r.orderId})` : ""}`;
+          // the team is told in its own chat; a failure to tell never undoes the pause
+          if (cfg.telegram?.teamChat) {
+            await sendTelegram(cfg.telegram, cfg.telegram.teamChat, `${cfg.name} (team notice): the guardian paused the protocol contract ${g.target} (${how}). Nothing unpauses it automatically: only the contract's owner can, after you have checked the site.`).catch(() => undefined);
+          }
+          out.push({ channel, audience: m.audience, kind: m.kind, ok: true, detail: how });
+        } else if (channel === "telegram") {
           const tg = cfg.telegram!;
           if (m.audience === "team") {
             await sendTelegram(tg, tg.teamChat!, `${cfg.name} (team notice): ${TEAM_TEXT[m.kind as TeamNotice]}${m.detail ? `\n${m.detail}` : ""}\n\nObserved hash: ${m.observed}`);
