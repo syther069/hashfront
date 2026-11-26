@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { badgeSnippet } from "@hashfront/cli/snippets";
 import { usePublicClient } from "wagmi";
@@ -7,9 +7,10 @@ import { dewebUrl, linkFor, publicClientFor, type Target } from "./config.ts";
 import { ago, ALERT_KIND, approvers, contextFor, readSnapshot, short, type ReleaseRow, type Snapshot } from "./chain.ts";
 import { inputNames, isPolicyV1, truthTable, type Row } from "./truthTable.ts";
 import { Affected } from "./Affected.tsx";
-import { useOkbPrice, useSuspects } from "./okx.ts";
-import { Check, Copy, OpenNewWindow, ShieldAlert, ShieldCheck } from "./icons.tsx";
-import { ErrorPanel, Loading } from "./ui.tsx";
+import { useOkbPrice, useSiteStatus, type SiteStatus } from "./okx.ts";
+import { ageText, statusOf, type Action, type StatusView } from "./statusModel.ts";
+import { OpenNewWindow, Refresh, ShieldAlert, ShieldCheck, WarningTriangle } from "./icons.tsx";
+import { CopyField, Fold, Loading } from "./ui.tsx";
 
 type Table = { ok: true; rows: Row[]; v1: boolean } | { ok: false; error: string };
 
@@ -32,38 +33,262 @@ export function useSnapshot(target: Target) {
   });
 }
 
+/** The page's own clock, ticking every 5 s, so staleness is re-judged without a new request. */
+function useNow(): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 5_000);
+    return () => clearInterval(t);
+  }, []);
+  return now;
+}
+
+const utc = (ms: number) => `${new Date(ms).toISOString().slice(11, 19)} UTC`;
+
 export function Status({ target }: { target: Target }) {
   const q = useSnapshot(target);
-  if (q.isPending) return <Loading what="Reading the gate from the chain" />;
-  if (q.isError) return <ErrorPanel title="Could not read the gate" detail={q.error.message} onRetry={() => void q.refetch()} />;
+  const site = useSiteStatus();
+  const now = useNow();
   const s = q.data;
-  const table = tableOf(s);
-  const alertOpen = s.lastAlert.kind === 1 || s.lastAlert.kind === 2;
+  const copyUrl = s ? dewebUrl(target, s.info.policyId) : undefined;
+  const siteData = site.data;
+
+  const view = statusOf({
+    nowMs: now,
+    chain: {
+      facts: s && {
+        liveRelease: s.info.liveRelease,
+        migrated: s.info.migrated,
+        frozen: s.info.frozen,
+        alertKind: s.lastAlert.kind,
+        alertAgeS: s.lastAlert.kind === 0 ? undefined : Number(s.now - s.lastAlert.at),
+        alertRelease: s.lastAlert.release,
+      },
+      error: q.isError && !s ? q.error.message : undefined,
+      fetchedAtMs: q.dataUpdatedAt || undefined,
+      refreshFailed: q.isRefetchError && Boolean(s),
+    },
+    site: {
+      pending: site.isPending,
+      failed: site.isError,
+      facts: siteData && { status: siteData.status, liveRelease: siteData.liveRelease, checkedAtMs: Date.parse(siteData.checkedAt) },
+    },
+    hasVerifiedCopy: Boolean(copyUrl),
+  });
+
+  if (q.isPending) return <Loading what="Reading the gate from the chain" />;
+  const retry = () => {
+    void q.refetch();
+    void site.refetch();
+  };
+  const table = s ? tableOf(s) : undefined;
+  const urgent = view.kind === "alert" || view.kind === "site-differs";
+  const suspects = siteData?.status === "alert" ? siteData.suspects : [];
+  const pending = s ? s.releases.filter((r) => r.status === "pending") : [];
+
   return (
     <>
-      <StatusHero s={s} copyUrl={dewebUrl(target, s.info.policyId)} />
-      {alertOpen && <Suspects target={target} />}
-      {alertOpen && <Affected target={target} alertOpen />}
-      <Overview s={s} target={target} v1={table.ok && table.v1} />
-      <Releases s={s} target={target} />
-      <WatcherHealth s={s} />
-      {!alertOpen && <Affected target={target} alertOpen={false} />}
-      <Policy s={s} table={table} />
-      <Badge target={target} />
+      <StatusHero view={view} copyUrl={copyUrl} onRetry={retry} chainFetchedAt={q.dataUpdatedAt || undefined} siteCheckedAt={siteData ? Date.parse(siteData.checkedAt) : undefined} now={now} />
+      {s && <Evidence s={s} site={site} siteData={siteData} now={now} onRetry={() => void site.refetch()} />}
+
+      {s && (
+        <section className="zone" data-testid="visitors" aria-labelledby="visitors-h">
+          <h2 id="visitors-h" className="zone-title">
+            What to do now
+          </h2>
+          <p className="muted zone-sub">For anyone who uses this protocol.</p>
+          {copyUrl && <VerifiedCopy url={copyUrl} urgent={urgent} />}
+          {suspects.length > 0 && <Suspects target={target} list={suspects} />}
+          <Affected target={target} alertOpen={urgent} />
+        </section>
+      )}
+
+      {s && (
+        <section className="zone maintainers-zone" data-testid="maintainers" aria-labelledby="maint-h">
+          <h2 id="maint-h" className="zone-title">
+            Release management
+          </h2>
+          <p className="muted zone-sub">For the protocol's maintainers. Approving needs a maintainer wallet.</p>
+          <Fold title="Releases and approvals" {...(s.releases.length ? {} : { hint: "no release yet" })} {...(pending.length ? { badge: `${pending.length} pending` } : {})} openOnWide testId="releases-fold">
+            <Releases s={s} target={target} />
+          </Fold>
+        </section>
+      )}
+
+      {s && table && (
+        <section className="zone" aria-label="Technical details">
+          <Fold title="Technical details" hint={`${target.chain.name} · gate ${short(target.gate)} · policy circuit #${s.info.policyId.toString()}`} testId="technical">
+            <Technical s={s} target={target} table={table} />
+          </Fold>
+          <Fold title="Reporting and metrics" hint="what the chain can and cannot say about the watcher" testId="reporting">
+            <WatcherHealth s={s} />
+          </Fold>
+        </section>
+      )}
     </>
   );
 }
 
-/** Addresses that appear only in the hijacked site. Triage, not proof: the card says so. */
-function Suspects({ target }: { target: Target }) {
-  const q = useSuspects(true);
-  const [copied, setCopied] = useState("");
-  const explorer = target.chain.blockExplorers?.default.url;
-  const list = q.data?.suspects ?? [];
-  if (!q.isSuccess || q.data.status !== "mismatch" || list.length === 0) return null;
-  const copy = (a: string) => {
-    void navigator.clipboard?.writeText(a).then(() => setCopied(a), () => undefined);
+const TONE_ICON = { good: ShieldCheck, bad: ShieldAlert, warn: WarningTriangle, neutral: ShieldCheck } as const;
+
+/** The first thing on the page: what is true right now, why, and the one safe thing to do next. */
+function StatusHero({ view, copyUrl, onRetry, chainFetchedAt, siteCheckedAt, now }: { view: StatusView; copyUrl: string | undefined; onRetry: () => void; chainFetchedAt: number | undefined; siteCheckedAt: number | undefined; now: number }) {
+  const Icon = TONE_ICON[view.tone];
+  const action = (a: Action, primary: boolean) => {
+    const cls = primary ? "btn primary" : "btn";
+    if (a === "verified-copy" && copyUrl)
+      return (
+        <a className={cls} href={copyUrl} target="_blank" rel="noopener noreferrer">
+          Open the verified copy <OpenNewWindow size={18} />
+        </a>
+      );
+    if (a === "check-approvals")
+      return (
+        <a className={cls} href="#affected">
+          Check my approvals
+        </a>
+      );
+    if (a === "retry")
+      return (
+        <button type="button" className={cls} onClick={onRetry}>
+          <Refresh /> Try again
+        </button>
+      );
+    return null;
   };
+  return (
+    <section className="hero" data-state={view.tone === "bad" ? "alert" : view.tone === "good" ? "ok" : view.tone} data-kind={view.kind} data-testid="alert-state" aria-live="polite">
+      <div className="hero-head">
+        <Icon size={32} />
+        <div>
+          <h1>{view.headline}</h1>
+          {view.detail && <p>{view.detail}</p>}
+        </div>
+      </div>
+      {view.reasons.length > 0 && (
+        <div className="hero-why" data-testid="why-not-green">
+          <strong>Why this is not a green check</strong>
+          <ul>
+            {view.reasons.map((r) => (
+              <li key={r}>{r}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {view.notices.map((n) => (
+        <p className="notice" key={n.id}>
+          {n.text}
+        </p>
+      ))}
+      <div className="hero-actions">
+        {action(view.primary, true)}
+        {view.secondary !== view.primary && action(view.secondary, false)}
+      </div>
+      <p className="hero-fresh small muted" data-testid="freshness">
+        {chainFetchedAt ? `Gate data refreshed ${ageText((now - chainFetchedAt) / 1000)} ago` : "Gate data not loaded"}
+        {" · "}
+        {siteCheckedAt ? `website check ${utc(siteCheckedAt)}` : "no website check"}
+      </p>
+    </section>
+  );
+}
+
+const OBSERVED: Record<number, string> = { 1: "sha256 of the page the watcher fetched", 2: "hash of the domain evidence the watcher compared", 3: "sha256 of the page the watcher fetched" };
+
+/** Evidence next to the status: the live release, the latest onchain alert, and the website check. Each says where it comes from. */
+function Evidence({ s, site, siteData, now, onRetry }: { s: Snapshot; site: ReturnType<typeof useSiteStatus>; siteData: SiteStatus | undefined; now: number; onRetry: () => void }) {
+  const live = s.releases.find((r) => r.status === "live");
+  const a = s.lastAlert;
+  const checked = siteData ? Date.parse(siteData.checkedAt) : undefined;
+  return (
+    <section className="evidence" aria-label="Evidence">
+      <div className="ev-block">
+        <h2>Live release</h2>
+        <p className="big" data-testid="live-release">
+          {s.info.liveRelease === 0n ? "none yet" : `v${s.info.liveRelease}`}
+        </p>
+        {live && (
+          <dl className="facts">
+            <dt>Root</dt>
+            <dd>
+              <CopyField value={live.root} shown={short(live.root)} label="release root" />
+            </dd>
+            <dt>Chunks</dt>
+            <dd>{live.totalChunks}</dd>
+            <dt>Approvals</dt>
+            <dd>
+              {live.approvalCount}/3 ({approvers(live.approvals).map((i) => `M${i + 1}`).join(", ")})
+            </dd>
+          </dl>
+        )}
+        <p className="small muted">Source: the gate contract, read in your browser.</p>
+      </div>
+
+      <div className="ev-block">
+        <h2>Latest alert</h2>
+        {a.kind === 0 ? (
+          <p>None reported onchain yet.</p>
+        ) : (
+          <>
+            <p className="ev-value">
+              {ALERT_KIND[a.kind] ?? "alert"} · {ago(s.now - a.at)} ago · release v{a.release.toString()}
+            </p>
+            <dl className="facts">
+              <dt>Observed</dt>
+              <dd>
+                <CopyField value={a.observed} shown={short(a.observed)} label="observed hash" />
+              </dd>
+            </dl>
+            <p className="small muted">The observed hash is the {OBSERVED[a.kind] ?? "evidence hash"}.</p>
+          </>
+        )}
+        <p className="small muted">The chain keeps only the latest alert. Source: ReleaseGate.lastAlert.</p>
+      </div>
+
+      <div className="ev-block" data-testid="live-check">
+        <h2>Website check</h2>
+        {site.isPending && <p className="muted">Checking now…</p>}
+        {site.isError && (
+          <>
+            <p className="ev-value">Unavailable</p>
+            <p className="small muted">{site.error.message}</p>
+            <button type="button" onClick={onRetry}>
+              <Refresh /> Try again
+            </button>
+          </>
+        )}
+        {siteData && checked !== undefined && (
+          <>
+            <p className="ev-value">{siteData.status === "ok" ? `Matches release v${siteData.liveRelease}` : siteData.status === "alert" ? "Differs from the approved release" : "Could not be confirmed"}</p>
+            <p className="small muted">
+              {utc(checked)} ({ageText((now - checked) / 1000)} ago)
+            </p>
+          </>
+        )}
+        <p className="small muted">Source: the status server, one network's view. The watcher and the Guard check separately.</p>
+      </div>
+    </section>
+  );
+}
+
+function VerifiedCopy({ url, urgent }: { url: string; urgent: boolean }) {
+  return (
+    <section className="card" data-testid="verified-copy">
+      <h2>Verified copy</h2>
+      <p>The files the maintainers approved, served from the chain by DeWEB. No server can change them. Pin this link{urgent ? " and use it instead of the usual website" : ""}.</p>
+      <p>
+        <a className={`btn${urgent ? " primary" : ""}`} href={url} target="_blank" rel="noopener noreferrer">
+          Open the verified copy <OpenNewWindow size={18} />
+        </a>
+      </p>
+      <p className="mono small">{url}</p>
+    </section>
+  );
+}
+
+/** Addresses that appear only in the changed website. Triage, not proof: the card says so. */
+function Suspects({ target, list }: { target: Target; list: string[] }) {
+  const explorer = target.chain.blockExplorers?.default.url;
   return (
     <section className="card suspects" data-testid="suspects">
       <h2>
@@ -76,16 +301,13 @@ function Suspects({ target }: { target: Target }) {
       </p>
       <ul className="plain">
         {list.map((a) => (
-          <li key={a} className="mono" data-testid="suspect">
-            <span>{a}</span>
+          <li key={a} data-testid="suspect">
+            <CopyField value={a} label="address" />
             {explorer && (
               <a href={`${explorer}/address/${a}`} target="_blank" rel="noopener noreferrer">
                 OKLink <OpenNewWindow size={16} />
               </a>
             )}
-            <button type="button" onClick={() => copy(a)}>
-              {copied === a ? <Check /> : <Copy />} {copied === a ? "Copied" : "Copy"}
-            </button>
           </li>
         ))}
       </ul>
@@ -100,152 +322,106 @@ function WatcherHealth({ s }: { s: Snapshot }) {
   const a = s.lastAlert;
   const last = a.kind === 0 ? "The watcher has not reported anything on chain yet." : `Last onchain report: ${ALERT_KIND[a.kind] ?? "alert"}, ${ago(s.now - a.at)} ago.`;
   return (
-    <section className="card" data-testid="watcher-health">
-      <h2>Watcher health</h2>
+    <div data-testid="watcher-health">
       <p className="muted">
         {last} The chain only shows reports, not whether the watcher is running right now. Measured uptime, check and OKX API latency, time to alert and
         false alarms from real runs are in the{" "}
         <a href={METRICS_URL} target="_blank" rel="noopener noreferrer">metrics report</a>.
       </p>
-    </section>
+    </div>
   );
 }
 
-/** The first thing on the page: is there an alert, and what should a visitor do now. */
-function StatusHero({ s, copyUrl }: { s: Snapshot; copyUrl: string | undefined }) {
-  const a = s.lastAlert;
-  const open = a.kind === 1 || a.kind === 2;
-  if (open) {
-    return (
-      <section className="hero" data-state="alert" data-testid="alert-state">
-        <div className="hero-head">
-          <ShieldAlert size={32} />
-          <div>
-            <h1>Open alert: {ALERT_KIND[a.kind]}</h1>
-            <p>
-              Reported {ago(s.now - a.at)} ago while v{a.release.toString()} was live. Do not connect your wallet on the usual website until the team
-              confirms. Use the verified copy.
-            </p>
-          </div>
-        </div>
-        <div className="hero-actions">
-          {copyUrl && (
-            <a className="btn primary" href={copyUrl} target="_blank" rel="noopener noreferrer">
-              Open the verified copy <OpenNewWindow size={18} />
+function Technical({ s, target, table }: { s: Snapshot; target: Target; table: Table }) {
+  const { info } = s;
+  const explorer = target.chain.blockExplorers?.default.url;
+  return (
+    <>
+      <dl className="facts">
+        <dt>Network</dt>
+        <dd>{target.chain.name}</dd>
+        <dt>Gate</dt>
+        <dd>
+          <CopyField value={target.gate} label="gate address" />{" "}
+          {explorer && (
+            <a href={`${explorer}/address/${target.gate}`} target="_blank" rel="noopener noreferrer">
+              Explorer <OpenNewWindow size={16} />
             </a>
           )}
-          {/* with no verified copy to point to (a gate without a DeWEB name), checking approvals is the one primary action */}
-          <a className={copyUrl ? "btn" : "btn primary"} href="#affected">
-            Check my approvals
-          </a>
-        </div>
-      </section>
-    );
-  }
-  return (
-    <section className="hero" data-state="ok" data-testid="alert-state">
-      <div className="hero-head">
-        <ShieldCheck size={32} />
-        <div>
-          <h1>No open alert.</h1>
-          <p>
-            {a.kind === 3 ? `The watcher reported all clear ${ago(s.now - a.at)} ago.` : "The watcher has not reported a problem."} This is not a live check of
-            the website: a stopped watcher looks the same.
-          </p>
-        </div>
-      </div>
-      {copyUrl && (
-        <div className="hero-actions">
-          <a className="btn" href={copyUrl} target="_blank" rel="noopener noreferrer">
-            Open the verified copy <OpenNewWindow size={18} />
-          </a>
-        </div>
-      )}
-    </section>
-  );
-}
-
-function Overview({ s, target, v1 }: { s: Snapshot; target: Target; v1: boolean }) {
-  const { info } = s;
-  const copy = dewebUrl(target, info.policyId);
-  const live = s.releases.find((r) => r.status === "live");
-  return (
-    <section className="card grid">
-      <div>
-        <h2>Live release</h2>
-        <p className="big" data-testid="live-release">
-          {info.liveRelease === 0n ? "none yet" : `v${info.liveRelease}`}
-        </p>
-        {live && (
-          <p className="mono small">
-            root {short(live.root)} · {live.totalChunks} chunks
-          </p>
-        )}
-        {copy && (
-          <p>
-            Verified copy:{" "}
-            <a href={copy} target="_blank" rel="noopener noreferrer">
-              {copy}
-            </a>
-          </p>
-        )}
-      </div>
-      <div>
-        <h2>Release policy</h2>
-        <p>
-          {v1
-            ? `2 of 3 maintainers + ${ago(info.timelock)} timelock, or 3 of 3 at once.`
-            : `Custom policy circuit (see the table below); timelock ${ago(info.timelock)}.`}{" "}
+        </dd>
+        <dt>Release policy</dt>
+        <dd>
+          {table.ok && table.v1 ? `2 of 3 maintainers + ${ago(info.timelock)} timelock, or 3 of 3 at once.` : `Custom policy circuit (see the table below); timelock ${ago(info.timelock)}.`}{" "}
           {info.frozen ? <strong className="bad">FROZEN: no release can go live.</strong> : "Not frozen."}
           <OkbPrice />
-        </p>
-        <ol className="maintainers">
-          {info.maintainers.map((m, i) => (
-            <li key={m}>
-              M{i + 1} <code>{m}</code>
-            </li>
-          ))}
-        </ol>
-        {info.migrated && <p className="bad">This gate was migrated and no longer accepts releases.</p>}
-      </div>
-    </section>
+        </dd>
+        <dt>Maintainers</dt>
+        <dd>
+          <ol className="maintainers">
+            {info.maintainers.map((m, i) => (
+              <li key={m}>
+                M{i + 1} <code>{m}</code>
+              </li>
+            ))}
+          </ol>
+        </dd>
+      </dl>
+      {info.migrated && <p className="bad">This gate was migrated and no longer accepts releases.</p>}
+      <Policy s={s} table={table} />
+      <Badge target={target} />
+    </>
   );
 }
 
+/** Release cards: which release, which root an approval signs, who approved, and where the timelock stands. */
 function Releases({ s, target }: { s: Snapshot; target: Target }) {
-  if (!s.releases.length) return null;
+  if (!s.releases.length) return <p className="muted">No release has been proposed yet. A maintainer proposes one with the Hashfront CLI.</p>;
   return (
-    <section className="card">
-      <h2>Releases</h2>
-      <table className="stack" data-testid="releases">
-        <thead>
-          <tr>
-            <th>Release</th>
-            <th>State</th>
-            <th>Approvals</th>
-            <th>Timelock</th>
-            <th>Can go live now</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {s.releases.map((r) => (
-            <tr key={r.id.toString()} data-testid={`release-${r.id}`}>
-              <td data-label="Release">v{r.id.toString()}</td>
-              <td data-label="State">
-                <span className={`pill ${r.status}`}>{stateLabel(r)}</span>
-              </td>
-              <td data-label="Approvals" data-testid={`approvals-${r.id}`}>
-                {r.approvalCount}/3 {r.approvalCount > 0 && <span className="muted">({approvers(r.approvals).map((i) => `M${i + 1}`).join(", ")})</span>}
-              </td>
-              <td data-label="Timelock">{timelockText(r, s)}</td>
-              <td data-label="Can go live now">{r.status === "pending" ? (r.wouldAllow ? <span className="good">yes</span> : "no") : "–"}</td>
-              <td>{r.status === "pending" && <a href={linkFor(target, `#/approve/${r.id}`)}>review</a>}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </section>
+    <div className="releases" data-testid="releases">
+      {s.releases.map((r) => (
+        <article className="release" key={r.id.toString()} data-testid={`release-${r.id}`}>
+          <header>
+            <h3>v{r.id.toString()}</h3>
+            <span className={`pill ${r.status}`}>{stateLabel(r)}</span>
+          </header>
+          <dl className="facts">
+            <dt>Approval signs</dt>
+            <dd>
+              release v{r.id.toString()} · root <code title={r.root}>{short(r.root)}</code> · {r.totalChunks} chunks
+            </dd>
+            <dt>Approvals</dt>
+            <dd data-testid={`approvals-${r.id}`}>
+              {r.approvalCount}/3 {r.approvalCount > 0 && <span className="muted">({approvers(r.approvals).map((i) => `M${i + 1}`).join(", ")})</span>}
+            </dd>
+            <dt>Who</dt>
+            <dd>
+              <ul className="slots">
+                {s.info.maintainers.map((m, i) => {
+                  const yes = approvers(r.approvals).includes(i);
+                  return (
+                    <li key={m} className={yes ? "yes" : "no"}>
+                      <span>M{i + 1}</span> <code title={m}>{short(m)}</code> <span className="slot-state">{yes ? "approved" : "not yet"}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </dd>
+            <dt>Timelock</dt>
+            <dd>{timelockText(r, s)}</dd>
+            <dt>Can go live now</dt>
+            <dd>{r.status === "pending" ? (r.wouldAllow ? <span className="good">yes</span> : "no") : "–"}</dd>
+          </dl>
+          {r.status === "pending" && (
+            <p className="release-action">
+              <a className="btn" href={linkFor(target, `#/approve/${r.id}`)}>
+                Review and approve v{r.id.toString()}
+              </a>
+              <span className="small muted">The root is read from the chain. Load manifest.json on the review page to see which files it contains.</span>
+            </p>
+          )}
+        </article>
+      ))}
+    </div>
   );
 }
 
@@ -266,8 +442,8 @@ function Policy({ s, table }: { s: Snapshot; table: Table }) {
   const { circuit } = s;
   if (!table.ok) {
     return (
-      <section className="card">
-        <h2>Policy circuit</h2>
+      <section className="subsection">
+        <h3>Policy circuit</h3>
         <p className="error">{table.error}</p>
       </section>
     );
@@ -280,8 +456,8 @@ function Policy({ s, table }: { s: Snapshot; table: Table }) {
   const at = new Map<number, string[]>();
   for (const r of s.releases) if (r.status === "pending" && r.bits !== undefined) at.set(r.bits, [...(at.get(r.bits) ?? []), `v${r.id}`]);
   return (
-    <section className="card">
-      <h2>Policy circuit #{s.info.policyId.toString()}</h2>
+    <section className="subsection">
+      <h3>Policy circuit #{s.info.policyId.toString()}</h3>
       <p className="muted">
         All {rows.length} input combinations, evaluated in your browser from the {circuit.netlist.length}-byte netlist stored by the TapeOut processor.
         {checkable.length > 0 && !disagree.length && ` Matches the gate's own verdict for ${checkable.map((r) => `v${r.id}`).join(", ")}.`}
@@ -326,8 +502,8 @@ function Badge({ target }: { target: Target }) {
   const snippet = badgeSnippet(src);
   const [copied, setCopied] = useState(false);
   return (
-    <section className="card">
-      <h2>"Protected by Hashfront" badge</h2>
+    <section className="subsection">
+      <h3>"Protected by Hashfront" badge</h3>
       <p className="muted">
         Shows the live release and any open alert, read from chain. Put it on your site, and pin the status link (not the badge) in Telegram. During a hijack
         the attacker controls your site and can remove or fake the badge, so the pinned link and the verified copy are what users should rely on.

@@ -123,15 +123,23 @@ async function walletPage(account: string, chainId = "0x7a69", sendCalls: "none"
   return page;
 }
 
+/** The Technical details and Reporting folds are closed until opened; opens one by its test id. */
+async function openFold(page: Page, testId: string) {
+  const fold = page.getByTestId(testId);
+  await fold.waitFor();
+  if (!(await fold.evaluate((e) => (e as HTMLDetailsElement).open))) await fold.locator("summary").click();
+}
+
 test("status page, then a maintainer approves in the browser and the status updates", async () => {
   const q = `?gate=${h.gate}&network=local&rpc=${encodeURIComponent(h.rpc)}`;
   const page = await walletPage(ADDR.m2);
 
   await page.goto(`${base}index.html${q}#/`);
   await page.getByTestId("alert-state").waitFor();
-  assert.match(await page.getByTestId("alert-state").innerText(), /No open alert/);
+  assert.match(await page.getByTestId("alert-state").innerText(), /No release is live yet/);
   assert.equal((await page.getByTestId("live-release").innerText()).trim(), "none yet");
   assert.match(await page.getByTestId("approvals-1").innerText(), /^1\/3 \(M1\)/);
+  await openFold(page, "technical");
   assert.equal(await page.locator('[data-testid="truth-table"] tbody tr').count(), 32);
   assert.equal(await page.getByTestId("policy-mismatch").count(), 0, "browser evaluation must agree with wouldAllow()");
   // the badge preview renders inside its iframe (catches a sandbox/CORS mistake that only shows when framed)
@@ -209,7 +217,7 @@ test("the badge shows the gate state and an open alert", async () => {
   // the status page shows the open alert too
   await page.goto(`${base}index.html${q}#/`);
   await page.getByTestId("alert-state").waitFor();
-  assert.match(await page.getByTestId("alert-state").innerText(), /^Open alert: website mismatch/);
+  assert.match(await page.getByTestId("alert-state").innerText(), /^Open alert: website does not match the approved release/);
 });
 
 test("a wallet on another chain cannot approve and is asked to switch", async () => {
@@ -264,13 +272,15 @@ test("during an open alert, 'Am I affected?' comes first and ranks a drainer app
   await page.getByTestId("affected").waitFor(); // the earlier test left an open alert(1) on this gate
   assert.match((await page.getByTestId("affected").getAttribute("class")) ?? "", /urgent/);
   const order = await page.locator("main > section").evaluateAll((els) => els.map((e) => e.getAttribute("data-testid") ?? e.className));
-  assert.ok(order.indexOf("affected") < order.findIndex((c) => /grid/.test(c)), `affected panel should come before the overview: ${order}`);
+  assert.ok(order.indexOf("visitors") >= 0 && order.indexOf("visitors") < order.indexOf("maintainers"), `visitors zone should come before the maintainers zone: ${order}`);
+  assert.equal(await page.locator('[data-testid="visitors"] [data-testid="affected"]').count(), 1, "the affected panel lives in the visitors zone");
   await page.getByTestId("affected-address").fill(USER);
   await page.getByTestId("affected-table").waitFor();
   assert.equal(await page.getByTestId("approval-eoa").count(), 1);
   assert.equal(await page.getByTestId("approval-trusted").count(), 1);
   assert.match(await page.getByTestId("approval-eoa").innerText(), /plain wallet[\s\S]*unlimited/);
   assert.equal(await page.getByTestId("revoke").isDisabled(), true, "revoking needs the owner's wallet");
+  await openFold(page, "technical");
   assert.match(await page.getByTestId("okb-price").innerText(), /OKB \$75\.91 \(OKX Market API\)/);
   await page.close();
 });
@@ -307,7 +317,7 @@ test("during an alert the status page lists the suspected attacker addresses and
     const url = new URL(route.request().url());
     const json = (body: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
     if (url.pathname === "/api/price") return json({ okbUsd: 75.91, time: Date.now(), source: "OKX Onchain OS Market API" });
-    if (url.pathname === "/api/suspects") return json({ status: "mismatch", liveRelease: 1, suspects: [ATTACKER], checkedAt: new Date().toISOString() });
+    if (url.pathname === "/api/status") return json({ site: "https://example.test", status: "alert", liveRelease: 1, rootHash: "0x", suspects: [ATTACKER], checkedAt: new Date().toISOString() });
     if (url.pathname === "/api/approvals") {
       const attacker = { ...approvalsBody.approvals[0], risk: "attacker", reasons: ["seen only in the hijacked site", "unlimited amount"] };
       return json({ ...approvalsBody, approvals: [approvalsBody.approvals[1], attacker, approvalsBody.approvals[0]].sort((a, b) => (a?.risk === "attacker" ? -1 : b?.risk === "attacker" ? 1 : 0)) });
@@ -332,7 +342,7 @@ test("when the site matches, no suspects card is shown", async () => {
     const url = new URL(route.request().url());
     const json = (body: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
     if (url.pathname === "/api/price") return json({ okbUsd: 75.91, time: Date.now(), source: "OKX Onchain OS Market API" });
-    if (url.pathname === "/api/suspects") return json({ status: "match", liveRelease: 1, suspects: [], checkedAt: new Date().toISOString() });
+    if (url.pathname === "/api/status") return json({ site: "https://example.test", status: "ok", liveRelease: 1, rootHash: "0x", suspects: [], checkedAt: new Date().toISOString() });
     return route.fallback();
   });
   await page.goto(`${base}index.html${q}#/`);
@@ -454,6 +464,7 @@ test("the status page has a watcher health card with the metrics report link", a
   const q = `?gate=${h.gate}&network=local&rpc=${encodeURIComponent(h.rpc)}`;
   const page = await browser.newPage();
   await page.goto(`${base}index.html${q}#/`);
+  await openFold(page, "reporting");
   const card = page.getByTestId("watcher-health");
   await card.waitFor();
   assert.match(await card.innerText(), /Last onchain report: /);
@@ -509,7 +520,7 @@ test("the status page reflows at 320, 390, 768 and 1280 px with an open alert, s
       const url = new URL(route.request().url());
       const json = (body: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
       if (url.pathname === "/api/price") return json({ okbUsd: 75.91, time: Date.now(), source: "OKX Onchain OS Market API" });
-      if (url.pathname === "/api/suspects") return json({ status: "mismatch", liveRelease: 1, suspects: ["0xBAd0000000000000000000000000000000000Bad"], checkedAt: new Date().toISOString() });
+      if (url.pathname === "/api/status") return json({ site: "https://example.test", status: "alert", liveRelease: 1, rootHash: "0x", suspects: ["0xBAd0000000000000000000000000000000000Bad"], checkedAt: new Date().toISOString() });
       if (url.pathname === "/api/approvals") {
         const attacker = { ...approvalsBody.approvals[0], risk: "attacker", reasons: ["seen only in the hijacked site", "unlimited amount"] };
         return json({ ...approvalsBody, approvals: [attacker, approvalsBody.approvals[1]] });
