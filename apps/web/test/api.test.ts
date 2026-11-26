@@ -123,3 +123,14 @@ test("status: public JSON feed with CORS and a 20 s cache; generic 503 when unco
   assert.equal(bad.status, 503);
   assert.doesNotMatch(await bad.text(), /secret|https/);
 });
+
+test("approvals: a suspects lookup that never answers cannot hold the approvals back", async () => {
+  const live = await fixture("approvals");
+  const never = () => new Promise<never>(() => {});
+  const d = { ...deps(live).d, suspects: never, suspectsWaitMs: 50 };
+  const started = Date.now();
+  const res = await getApprovals(new Request(`https://s/api/approvals?address=${USER}`), d);
+  assert.equal(res.status, 200);
+  assert.ok(Date.now() - started < 1_000, "answered without waiting for the lookup");
+  assert.ok((await res.json()).approvals.length > 0);
+});

@@ -11,6 +11,8 @@ import { manifestFor, type ManifestStore } from "./manifests.ts";
 export const PREVIOUS_WINDOW = 3n;
 /** How many releases above the live one are checked for "deployed before activation". */
 export const AHEAD_WINDOW = 3n;
+/** SiteRegistry range reads in flight at once when reading an approved file back. */
+export const READ_CONCURRENCY = 8;
 
 export interface ChainSnapshot {
   info: GateInfo;
@@ -69,16 +71,21 @@ export async function readSnapshot(ctx: Context, store: ManifestStore): Promise<
 export async function readReleaseFile(ctx: Context, info: GateInfo, id: bigint, rel: string): Promise<Uint8Array> {
   const full = stagedPath(id, rel);
   const meta = await readFile(ctx, info.registry, info.container, full);
-  const parts: Hex[] = [];
-  for (let offset = 0; offset < meta.size; offset += CHUNK_SIZE) {
-    parts.push(
-      await ctx.publicClient.readContract({
+  const offsets: number[] = [];
+  for (let offset = 0; offset < meta.size; offset += CHUNK_SIZE) offsets.push(offset);
+  // a few ranges at a time: a 2 MB bundle is about 85 reads, and one after another that is seconds on a cold function
+  const parts = new Array<Hex>(offsets.length);
+  let next = 0;
+  const worker = async () => {
+    for (let i = next++; i < offsets.length; i = next++) {
+      parts[i] = await ctx.publicClient.readContract({
         address: info.registry,
         abi: siteRegistryAbi,
         functionName: "readRange",
-        args: [info.container, full, BigInt(offset), BigInt(CHUNK_SIZE)],
-      }),
-    );
-  }
+        args: [info.container, full, BigInt(offsets[i]!), BigInt(CHUNK_SIZE)],
+      });
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(READ_CONCURRENCY, offsets.length) }, worker));
   return parts.length === 0 ? new Uint8Array() : hexToBytes(concatHex(parts));
 }
