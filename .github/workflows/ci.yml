@@ -77,5 +77,8 @@ jobs:
           npm run build:hijack -w apps/demo-dapp
       - name: Status page, approve page, suspects and batch revoke (Playwright on the runner's Chrome, anvil)
         run: npm run test:e2e -w apps/web
-      - name: Hashfront Guard (the real extension in Chrome, both script orders)
-        run: xvfb-run -a npm run test:e2e -w apps/guard
+      - name: Hashfront Guard (the real extension in Playwright's Chromium, both script orders)
+        # branded Chrome 137+ ignores --load-extension, so this one test uses the Chromium that Playwright downloads
+        run: |
+          npx playwright install --with-deps chromium
+          PW_CHANNEL=chromium xvfb-run -a npm run test:e2e -w apps/guard
