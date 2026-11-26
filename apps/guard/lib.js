@@ -3,24 +3,6 @@
 (function (root) {
   "use strict";
 
-  /** Requests that make the wallet sign or send something. Reads (eth_call, eth_accounts, ...) are never touched. */
-  const SIGNING_METHODS = new Set([
-    "eth_sendTransaction",
-    "eth_sendRawTransaction",
-    "eth_sign",
-    "personal_sign",
-    "eth_signTypedData",
-    "eth_signTypedData_v3",
-    "eth_signTypedData_v4",
-    "wallet_sendCalls",
-    "wallet_sendTransaction",
-  ]);
-
-  /** True when the request would ask the wallet for a signature or a transaction. */
-  function isSigningRequest(method) {
-    return typeof method === "string" && SIGNING_METHODS.has(method);
-  }
-
   /** lowercase hex sha256 with a 0x prefix, the same notation as the release manifest */
   async function sha256Hex(bytes) {
     const digest = await root.crypto.subtle.digest("SHA-256", bytes);
@@ -52,7 +34,7 @@
     return list.filter((a) => typeof a === "string" && /^0x[0-9a-fA-F]{40}$/.test(a)).slice(0, 5);
   }
 
-  const api = { SIGNING_METHODS, isSigningRequest, sha256Hex, decide, safeSuspects };
+  const api = { sha256Hex, decide, safeSuspects };
   root.HashfrontGuard = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

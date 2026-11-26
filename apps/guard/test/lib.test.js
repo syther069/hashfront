@@ -1,16 +1,11 @@
 "use strict";
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { isSigningRequest, decide, safeSuspects, sha256Hex } = require("../lib.js");
+const { decide, safeSuspects, sha256Hex } = require("../lib.js");
 
 const SITE = "https://hashswap-demo.vercel.app";
 const ROOT = "0x" + "ab".repeat(32);
 const ok = { site: SITE, status: "ok", rootHash: ROOT, suspects: [] };
-
-test("only requests that sign or send are filtered; reads and account requests pass", () => {
-  for (const m of ["eth_sendTransaction", "personal_sign", "eth_signTypedData_v4", "wallet_sendCalls", "eth_sign"]) assert.equal(isSigningRequest(m), true, m);
-  for (const m of ["eth_chainId", "eth_accounts", "eth_requestAccounts", "eth_call", "wallet_switchEthereumChain", "eth_getBalance", undefined, 5]) assert.equal(isSigningRequest(m), false, String(m));
-});
 
 test("an open alert blocks; an ok feed with the same hash does not", () => {
   assert.deepEqual(decide({ ...ok, status: "alert" }, SITE, ROOT), { block: true, reason: "alert" });

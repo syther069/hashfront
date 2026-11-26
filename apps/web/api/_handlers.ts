@@ -11,6 +11,8 @@ export interface Deps {
   env: Record<string, string | undefined>;
   /** attacker addresses from the live site diff; absent when the site is not configured */
   suspects?: (() => Promise<SuspectsReport>) | undefined;
+  /** how long approvals wait for the suspects lookup (default 3 s); a test knob */
+  suspectsWaitMs?: number;
 }
 
 export function depsFromEnv(env: Record<string, string | undefined> = process.env): Deps {
@@ -27,6 +29,20 @@ const json = (status: number, body: unknown, cache?: string) =>
 const unavailable = (err?: unknown) =>
   json(503, { error: "OKX API unavailable", ...(err instanceof OkxError && err.code ? { okxCode: err.code } : {}) });
 
+const SUSPECTS_WAIT_MS = 3_000;
+
+/** Resolves with the promise's value, or rejects after `ms`. An undefined promise resolves to undefined. */
+export function withTimeout<T>(p: Promise<T> | undefined, ms: number): Promise<T | undefined> {
+  if (!p) return Promise.resolve(undefined);
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("timed out")), ms);
+    p.then(
+      (v) => (clearTimeout(timer), resolve(v)),
+      (e: unknown) => (clearTimeout(timer), reject(e instanceof Error ? e : new Error(String(e)))),
+    );
+  });
+}
+
 /** GET /api/approvals?address=0x…: the address's token approvals on X Layer, worst first. */
 export async function getApprovals(req: Request, deps: Deps): Promise<Response> {
   const address = new URL(req.url).searchParams.get("address") ?? "";
@@ -34,8 +50,9 @@ export async function getApprovals(req: Request, deps: Deps): Promise<Response> 
   if (!deps.okx) return unavailable();
   try {
     const pages = await approvals(deps.okx, getAddress(address));
-    // A failed or slow suspects lookup must never hide the user's approvals: they are ranked without it.
-    const found = await deps.suspects?.().then((r) => r.suspects, () => []);
+    // A failed or slow suspects lookup must never hide the user's approvals: they are ranked without it. The lookup
+    // fetches the site and reads the chain, so it gets a short time limit of its own.
+    const found = await withTimeout(deps.suspects?.().then((r) => r.suspects), deps.suspectsWaitMs ?? SUSPECTS_WAIT_MS).catch(() => []);
     const list = classifyPages(pages, parseAllowed(deps.env.ALLOWED_SPENDERS), new Set((found ?? []).map((a) => a.toLowerCase())));
     return json(200, { address: getAddress(address), chain: "X Layer", source: "OKX Onchain OS security API", approvals: list }, "public, s-maxage=30, stale-while-revalidate=60");
   } catch (err) {

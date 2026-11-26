@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 120" width="360" height="120" role="img">
+  <title>Hashfront</title>
+  <g>
+    <rect width="120" height="120" rx="28" fill="#111114"/>
+    <rect x="38" y="22" width="13" height="76" rx="6.5" fill="#5A5A63"/>
+    <rect x="69" y="22" width="13" height="76" rx="6.5" fill="#5A5A63"/>
+    <rect x="22" y="40" width="76" height="13" rx="6.5" fill="#F4F4F6"/>
+    <rect x="22" y="67" width="76" height="13" rx="6.5" fill="#9A9AA3"/>
+    <rect x="69" y="67" width="13" height="13" rx="3" fill="#F4F4F6"/>
+  </g>
+  <text x="140" y="77" font-family="Inter, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif" font-size="46" font-weight="600" letter-spacing="-1.5" fill="#111114">hash<tspan fill="#5A5A63">front</tspan></text>
+</svg>

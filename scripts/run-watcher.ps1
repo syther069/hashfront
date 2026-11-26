@@ -14,7 +14,9 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-Location (Join-Path $PSScriptRoot '..')
 
-$cfg = Get-Content hashfront.json -Raw | ConvertFrom-Json
+# hashfront.json is written by `hashfront init` and is git-ignored; a fresh clone uses the tracked public copy of the live deployment
+$cfgPath = if (Test-Path hashfront.json) { 'hashfront.json' } else { 'hashfront.example.json' }
+$cfg = Get-Content $cfgPath -Raw | ConvertFrom-Json
 # X Layer Builder Code (ERC-8021): appended to every alert transaction the watcher sends
 if ($cfg.builderCode) { $env:HASHFRONT_BUILDER_CODE = $cfg.builderCode }
 New-Item -ItemType Directory -Force -Path .watcher | Out-Null

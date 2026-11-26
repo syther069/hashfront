@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" role="img">
+  <title>Hashfront mark, inverse</title>
+  <rect width="120" height="120" rx="28" fill="#F4F4F6"/>
+  <rect x="38" y="22" width="13" height="76" rx="6.5" fill="#9A9AA3"/>
+  <rect x="69" y="22" width="13" height="76" rx="6.5" fill="#9A9AA3"/>
+  <rect x="22" y="40" width="76" height="13" rx="6.5" fill="#111114"/>
+  <rect x="22" y="67" width="76" height="13" rx="6.5" fill="#5A5A63"/>
+  <rect x="69" y="67" width="13" height="13" rx="3" fill="#111114"/>
+</svg>

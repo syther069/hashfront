@@ -15,6 +15,7 @@ A Manifest V3 browser extension (Chrome, Edge, Brave) that stops a wallet signat
 - It defends against generic drainers. An attacker who builds a page to beat the Guard (for example by unwrapping the provider, or using a wallet that bypasses `window.ethereum`, `window.okxwallet` and EIP-6963) is not stopped.
 - If the feed is down or unclear, it never blocks (fail open). A feed that says `unknown` (host behind, CDN changes) disables the hash check to avoid false alarms.
 - Legacy `send` and `sendAsync` provider methods are not wrapped.
+- The two content scripts hand a secret to each other at start. This works whichever script the browser runs first (tested both orders in Edge); other browsers are untested.
 
 ## Install (unpacked)
 

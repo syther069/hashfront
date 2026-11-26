@@ -37,6 +37,8 @@ export interface SignalConfig {
   /** registry data (RDAP) and DNSSEC (DoH), default on; asked at most this often (default 10 min) */
   registry?: boolean;
   registryIntervalMs?: number;
+  /** after a failed CT or registry lookup, do not ask again for this long (default 5 min): a dead public API must not slow every check */
+  failureCooldownMs?: number;
   /** the OnchainOS scan is an API call; run it at most this often (default 10 min) */
   scanIntervalMs?: number;
   /** overwrite an existing baseline (still only when recording is allowed) */
@@ -67,6 +69,9 @@ interface CtOutcome {
 const scanCache = new Map<string, { at: number; result: ScanResult }>();
 const registryCache = new Map<string, { at: number; obs: RegistryObservation }>();
 const ctCache = new Map<string, { at: number; fetch: CtFetch }>();
+const ctFailures = new Map<string, { at: number; error: string }>();
+const registryFailures = new Map<string, { at: number; obs: RegistryObservation }>();
+const COOLDOWN_MS = 300_000;
 
 export function isLocalHost(host: string): boolean {
   const h = host.replace(/^\[|\]$/g, "").toLowerCase();
@@ -114,12 +119,19 @@ export async function checkSignals(site: URL, mayRecord: boolean, cfg: SignalCon
     }
   }
 
-  const wantCert = cfg.cert !== false && site.protocol === "https:";
+  const secure = site.protocol === "https:";
+  const wantCert = cfg.cert !== false && secure;
   const wantScan = cfg.scan !== false;
-  const [dnsObs, cert, scan] = await Promise.all([
-    observeDns(host, cfg.dnsServers ?? DEFAULT_DNS_SERVERS, deps.resolver).catch(
-      (err): DnsObservation => ({ ok: false, failed: [{ server: "*", error: errorText(err) }] }),
-    ),
+  const wantCt = cfg.ct !== false && secure;
+  const wantRegistry = cfg.registry !== false && secure;
+  const dnsP = observeDns(host, cfg.dnsServers ?? DEFAULT_DNS_SERVERS, deps.resolver).catch(
+    (err): DnsObservation => ({ ok: false, failed: [{ server: "*", error: errorText(err) }] }),
+  );
+  // CT and the registry are asked about the zone DNS found. They start the moment it is known and run beside the
+  // certificate probe and the scan, so a slow public API costs one wait, not one wait after another.
+  const domainP = dnsP.then((d) => (d.ok && d.records.zone ? d.records.zone : host.split(".").slice(-2).join(".")));
+  const [dnsObs, cert, scan, ct, registry] = await Promise.all([
+    dnsP,
     wantCert
       ? (deps.tls ?? tlsProbe)(host, Number(site.port) || 443, 10_000).then(
           (info): { info?: CertInfo; error?: string } => ({ info }),
@@ -127,14 +139,13 @@ export async function checkSignals(site: URL, mayRecord: boolean, cfg: SignalCon
         )
       : undefined,
     wantScan ? cachedScan(host, cfg, deps.runScan ?? scanner().run, now) : undefined,
+    wantCt
+      ? domainP
+          .then((domain) => cachedCt(domain, baseline?.ct, cfg, deps.ctFetch, now))
+          .then((fetch): CtOutcome => ({ fetch }), (err: unknown): CtOutcome => ({ error: errorText(err) }))
+      : undefined,
+    wantRegistry ? domainP.then((domain) => cachedRegistry(domain, cfg, deps.registryFetch, now)) : undefined,
   ]);
-
-  const wantCt = cfg.ct !== false && site.protocol === "https:";
-  const ctDomain = dnsObs.ok && dnsObs.records.zone ? dnsObs.records.zone : host.split(".").slice(-2).join(".");
-  const ct = wantCt ? await cachedCt(ctDomain, baseline?.ct, cfg, deps.ctFetch, now).then((fetch): CtOutcome => ({ fetch }), (err: unknown): CtOutcome => ({ error: errorText(err) })) : undefined;
-
-  const wantRegistry = cfg.registry !== false && site.protocol === "https:";
-  const registry = wantRegistry ? await cachedRegistry(ctDomain, cfg, deps.registryFetch, now) : undefined;
 
   const report: SignalsReport = { level: "ok", baseline: "none" };
 
@@ -255,9 +266,12 @@ function registryBaselineOf(o: RegistryObservation | undefined): { registry: Reg
 async function cachedRegistry(domain: string, cfg: SignalConfig, fetchFn: FetchLike | undefined, now: () => number): Promise<RegistryObservation> {
   const hit = registryCache.get(domain);
   if (hit && now() - hit.at < (cfg.registryIntervalMs ?? 600_000)) return hit.obs;
+  const failed = registryFailures.get(domain);
+  if (failed && now() - failed.at < (cfg.failureCooldownMs ?? COOLDOWN_MS)) return failed.obs;
   const obs = await observeRegistry(domain, fetchFn);
-  // only a complete answer is kept: a failed lookup must be retried at the next check
-  if (!obs.errors.length) registryCache.set(domain, { at: now(), obs });
+  // a complete answer is kept for the interval; a failed one only for the cooldown, so a dead API is not asked every check
+  if (obs.errors.length) registryFailures.set(domain, { at: now(), obs });
+  else registryCache.set(domain, { at: now(), obs });
   return obs;
 }
 
@@ -270,9 +284,16 @@ async function cachedCt(domain: string, base: CtBaseline | undefined, cfg: Signa
   const key = `${domain}|${base?.source ?? ""}:${base?.lastId ?? ""}`;
   const hit = ctCache.get(key);
   if (hit && now() - hit.at < (cfg.ctIntervalMs ?? 600_000)) return hit.fetch;
-  const fetch = await fetchIssuances(domain, base && { source: base.source, id: base.lastId }, fetchFn);
-  ctCache.set(key, { at: now(), fetch });
-  return fetch;
+  const failed = ctFailures.get(key);
+  if (failed && now() - failed.at < (cfg.failureCooldownMs ?? COOLDOWN_MS)) throw new Error(failed.error);
+  try {
+    const fetch = await fetchIssuances(domain, base && { source: base.source, id: base.lastId }, fetchFn);
+    ctCache.set(key, { at: now(), fetch });
+    return fetch;
+  } catch (err) {
+    ctFailures.set(key, { at: now(), error: errorText(err) });
+    throw err;
+  }
 }
 
 /** Test helper: forget cached scan and CT results. */
@@ -280,4 +301,6 @@ export function clearScanCache(): void {
   scanCache.clear();
   ctCache.clear();
   registryCache.clear();
+  ctFailures.clear();
+  registryFailures.clear();
 }

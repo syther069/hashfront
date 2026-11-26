@@ -38,6 +38,7 @@ npm test -w apps/web && npm run test:e2e -w apps/web  # unit tests; Playwright o
 npm run test:e2e -w packages/watcher          # watcher on a fork: MATCH/MISMATCH, then one alert per incident (mock Telegram + forked TapeSend hub)
 npm test -w apps/guard && npm run test:e2e -w apps/guard  # Guard: unit tests; the real extension loaded in Edge against local good and hijack builds
 npm run test:e2e -w packages/watcher  # includes guardian.e2e.ts: DemoVault paused once per incident on a fork; the guardian flags are refused on mainnet
+pwsh scripts/deploy-status.ps1 -NoDeploy  # build the status page with the gate baked in and check it (drop -NoDeploy to deploy)
 npm run pack:guard                            # dist/hashfront-guard.zip (what the GitHub Release carries)
 node scripts/metrics-report.ts --log .watcher/watch.jsonl --out docs/metrics.md [--drill <from>,<to>]  # watcher log (run-watcher.ps1 -Log) to measured metrics
 node packages/watcher/src/main.ts --telegram-test --telegram-chat=<id>  # needs TELEGRAM_BOT_TOKEN in the env

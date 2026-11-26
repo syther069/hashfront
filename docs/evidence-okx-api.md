@@ -18,7 +18,7 @@ Request shapes come from OKX's own open-source CLI ([okx/onchainos-skills](https
 | Security | `POST /api/v6/security/transaction-scan/evm` | Approve page: a pre-execution scan of the maintainer's exact `approve` transaction |
 | Onchain Gateway | `GET /api/v6/dex/pre-transaction/gas-price` | Alert pricing, reporter gas guard |
 | Onchain Gateway | `POST /api/v6/dex/pre-transaction/simulate` | Every alert is simulated by OKX before broadcast |
-| Onchain Gateway | `POST /api/v6/dex/pre-transaction/broadcast-transaction` | Alerts are broadcast through OKX **and** the RPC: same signed bytes, so no double alert |
+| Onchain Gateway | `POST /api/v6/dex/pre-transaction/broadcast-transaction` | Alerts are broadcast through OKX **and** the RPC: same signed bytes, so no double alert. Tested against a mock gateway on a fork; no live mainnet broadcast through it yet (task E2) |
 | Onchain Gateway | `GET /api/v6/dex/post-transaction/orders` | OKX order tracking for alerts |
 | Balance | `POST /api/v6/dex/balance/token-balances-by-address` | Reporter gas guard (native OKB = empty contract address) |
 | Market | `POST /api/v6/dex/market/price` | OKB/USD for fees on the status page, the approve page and `hashfront init` (native = `0xeeee…eeee`) |
