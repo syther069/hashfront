@@ -22,7 +22,8 @@ export type TeamNotice =
   | "dns-unknown"
   | "reporter-gas-low";
 
-export type Channel = "telegram" | "tapesend";
+/** "guardian" is the optional pause of the protocol's own contract; it is never a community channel */
+export type Channel = "telegram" | "tapesend" | "guardian";
 export type Hex = `0x${string}`;
 
 export interface Observation {
@@ -60,7 +61,7 @@ export interface Observation {
 export interface Outgoing {
   id: string;
   audience: "community" | "team";
-  kind: AlertKind | TeamNotice;
+  kind: AlertKind | TeamNotice | "guardian-pause";
   observed: Hex;
   /** extra text for team notices: addresses or certificate names only, never links */
   detail?: string;
@@ -81,6 +82,8 @@ export interface AlertState {
   team: Partial<Record<TeamNotice, { run: number; notified: boolean }>>;
   outbox: Outgoing[];
   seq: number;
+  /** the guardian pause was queued for the incident that is open now; cleared by the all-clear */
+  guardianSent?: boolean;
 }
 
 export interface IncidentConfig {
@@ -92,6 +95,8 @@ export interface IncidentConfig {
   channels: Channel[];
   /** whether a team chat exists; without one, team notices are dropped */
   teamChat: boolean;
+  /** the guardian pause is configured: queue pause() once when an incident is confirmed */
+  guardian?: boolean;
 }
 
 /** Consecutive checks before each team notice; slow ones are normal for a while (deploys, flaky networks). */
@@ -160,6 +165,12 @@ export function step(prev: AlertState, o: Observation, cfg: IncidentConfig): { s
     if (!s.open[t] && s.runs[t] >= cfg.confirm) {
       s.open[t] = { openedAt: at, observed: evidence[t] };
       push("community", t === "mismatch" ? KIND.MISMATCH : KIND.DNS_CHANGED, evidence[t]);
+      // the same moment the community alert fires, and at most once while any incident stays open
+      if (cfg.guardian && !s.guardianSent) {
+        s.guardianSent = true;
+        s.outbox.push({ id: `${++s.seq}`, audience: "team", kind: "guardian-pause", observed: evidence[t], createdAt: at, pending: ["guardian"], attempts: 0 });
+        created.push(s.outbox[s.outbox.length - 1]!);
+      }
     }
   }
 
@@ -173,6 +184,7 @@ export function step(prev: AlertState, o: Observation, cfg: IncidentConfig): { s
     if (s.clearRun >= cfg.clear) {
       s.open = {};
       s.clearRun = 0;
+      s.guardianSent = false; // the next incident may pause again; the contract itself stays paused until its owner unpauses
       push("community", KIND.RESOLVED, o.contentObserved);
     }
   } else {

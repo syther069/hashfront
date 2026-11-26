@@ -12,7 +12,8 @@ import { sendTelegram, type TelegramConfig } from "./alerts/telegram.ts";
 import { resolveRecipients } from "./alerts/tapesend.ts";
 import { keyFromAccount } from "@hashfront/cli/keystore";
 import { credentialsFromEnv, drainOkxMetrics, OkxClient } from "@hashfront/okx/client";
-import { formatEther } from "viem";
+import { formatEther, isAddress } from "viem";
+import { assertGuardianAllowed } from "./alerts/guardian.ts";
 import type { GasStatus } from "./alerts/gas.ts";
 import { checkOnce, watchLoop, type CheckResult, type WatchConfig } from "./watch.ts";
 
@@ -54,6 +55,9 @@ Alerts (step 9). On when --telegram-chat or --tapesend-to is given; they never c
                         the reporter: --account <foundry keystore> (password asked once at start), or
                         HASHFRONT_PRIVATE_KEY on a server
   --alerts-mainnet      required for TapeSend alerts on --network xlayer (each one is a mainnet transaction)
+  --guardian-call <addr>      optional pause: call pause() on this protocol contract once when an incident is confirmed
+  --guardian-account <name>   Foundry keystore of the guardian key (or HASHFRONT_GUARDIAN_PRIVATE_KEY in the env). A separate key
+                              that can only pause. Refused on X Layer mainnet: forks and testnets only. Unpausing is the owner's job
   --confirm <n>         bad checks in a row before a community alert (default 2)
   --clear <n>           clean checks in a row before the all-clear (default 3)
   --telegram-test       send one test message to --telegram-chat and exit
@@ -247,6 +251,8 @@ async function main(argv: string[]): Promise<number> {
       "signals-only": { type: "boolean", default: false },
       name: { type: "string" },
       "alert-state": { type: "string" },
+      "guardian-call": { type: "string" },
+      "guardian-account": { type: "string" },
       "telegram-chat": { type: "string" },
       "telegram-team-chat": { type: "string" },
       "telegram-api": { type: "string" },
@@ -316,6 +322,21 @@ async function main(argv: string[]): Promise<number> {
   if (telegram || values["tapesend-to"]) {
     if (!values.name) throw new UsageError("alerts need --name (the protocol name shown in messages)");
     if (!values["alert-state"]) throw new UsageError("alerts need --alert-state <file>");
+    let guardian: { ctx: typeof ctx; target: `0x${string}` } | undefined;
+    if (values["guardian-call"] || values["guardian-account"]) {
+      if (!values["guardian-call"] || !isAddress(values["guardian-call"], { strict: false })) throw new UsageError("--guardian-call must be the protocol contract address that has pause()");
+      const envKey = process.env.HASHFRONT_GUARDIAN_PRIVATE_KEY?.trim();
+      if (envKey && !/^0x[0-9a-fA-F]{64}$/.test(envKey)) throw new UsageError("HASHFRONT_GUARDIAN_PRIVATE_KEY must be a 0x-prefixed 32-byte hex key");
+      const key = (envKey as `0x${string}` | undefined) ?? (values["guardian-account"] ? await keyFromAccount(values["guardian-account"]) : undefined);
+      if (!key) throw new UsageError("the guardian needs its own key: --guardian-account <keystore> or HASHFRONT_GUARDIAN_PRIVATE_KEY (never the reporter's key)");
+      const gctx = createContext({ network: values.network, gate: ctx.gate, rpcUrl: values.rpc ?? process.env.HASHFRONT_RPC_URL, needsSigner: true, privateKey: key });
+      try {
+        assertGuardianAllowed(gctx.chain.id);
+      } catch (err) {
+        throw new UsageError(err instanceof Error ? err.message : String(err));
+      }
+      guardian = { ctx: gctx, target: values["guardian-call"] as `0x${string}` };
+    }
     let tapesend: { ctx: typeof ctx; to: `0x${string}`[] } | undefined;
     if (values["tapesend-to"]) {
       const signer = createContext({
@@ -338,6 +359,7 @@ async function main(argv: string[]): Promise<number> {
       readCtx: ctx,
       ...(telegram ? { telegram } : {}),
       ...(tapesend ? { tapesend } : {}),
+      ...(guardian ? { guardian } : {}),
       ...(okxClient ? { okx: okxClient } : {}),
     });
   }

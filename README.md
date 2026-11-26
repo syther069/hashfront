@@ -55,6 +55,7 @@ Users can't see the difference, and teams usually find out from their users.
 - **Address extraction is best-effort triage.** Addresses that are obfuscated or fetched at runtime are missed.
 - **A user-side guard protects only users who installed it.** It is a reference for wallets to read the same feed.
 - **One vantage point.** The watcher sees what its own network sees. A hijacker who serves the real page to the watcher is caught only through the DNS and certificate signals.
+- **The guardian pause is an experiment, and fork-only.** `contracts/src/DemoVault.sol` and `--guardian-call` show a protocol letting one narrow key pause its own contract when an incident is confirmed (once per incident; only the owner unpauses). The watcher refuses it on X Layer mainnet, because one false positive pausing a live protocol is a liability. It is not deployed anywhere.
 - **Pricing is a hypothesis.** It is not validated by paying customers; see [`docs/business.md`](docs/business.md).
 
 ## Live on X Layer mainnet
@@ -201,9 +202,9 @@ hashfront init --site https://app.example.org --maintainers 0xM1,0xM2,0xM3 \
 
 | Suite | Count | Covers |
 |---|---|---|
-| `forge test` | 48 (41 without the fork tests) | gate lifecycle, policy, fuzzing, manifest compatibility with the CLI, alerts, plus X Layer fork tests (contract holder on the real SiteRegistry, real TapeSend hub) |
-| unit (`npm test`) | 179 | circuit truth table, Merkle and manifest, preflight, keystore, init input, template guards; watcher compare, CDN and adversarial cases, DNS, certificate, CT, registry and scan signals, suspects, incident state machine, metrics report; OKX client and latency ring; web handlers and revoke logic; Guard request filter and verdict logic |
-| end-to-end | CLI suites, watcher 7, web 12, Guard 6 | CLI on anvil and on a fork (`init`, Action sequence, demo release), watcher MATCH→MISMATCH, one alert per incident and the attacker address from a hijack build, Playwright on the status, approve and badge pages including suspects and revoke-all against a real anvil allowance, and the real extension loaded in Edge against the good and hijack builds |
+| `forge test` | 57 (50 without the fork tests) | gate lifecycle, policy, fuzzing, manifest compatibility with the CLI, alerts, plus X Layer fork tests (contract holder on the real SiteRegistry, real TapeSend hub) |
+| unit (`npm test`) | 186 | circuit truth table, Merkle and manifest, preflight, keystore, init input, template guards; watcher compare, CDN and adversarial cases, DNS, certificate, CT, registry and scan signals, suspects, incident state machine, metrics report; OKX client and latency ring; web handlers and revoke logic; Guard request filter and verdict logic |
+| end-to-end | CLI suites, watcher 9, web 12, Guard 6 | CLI on anvil and on a fork (`init`, Action sequence, demo release), watcher MATCH→MISMATCH, one alert per incident and the attacker address from a hijack build, Playwright on the status, approve and badge pages including suspects and revoke-all against a real anvil allowance, and the real extension loaded in Edge against the good and hijack builds |
 
 ## Security model and limits
 
