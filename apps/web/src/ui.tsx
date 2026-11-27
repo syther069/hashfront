@@ -1,6 +1,6 @@
 // Small shared pieces: the brand mark, the loader and the error panel, so every page loads and fails the same way.
-import { useState, type ReactNode } from "react";
-import { Check, Copy, NavArrowDown, Refresh, WarningTriangle } from "./icons.tsx";
+import { useId, useState, type ReactNode } from "react";
+import { Check, Copy, InfoCircle, NavArrowDown, Refresh, WarningTriangle } from "./icons.tsx";
 
 /** The Hashfront mark (docs/brand/hashfront-mark.svg): a hash made of four bars, one node lit. Brand colours, not theme colours. */
 export function Logo() {
@@ -102,5 +102,20 @@ export function Fold({ title, hint, badge, openOnWide, testId, children }: { tit
       </summary>
       <div className="fold-body">{children}</div>
     </details>
+  );
+}
+
+/** A small "?" next to a term: the plain-language meaning on hover, on keyboard focus, or on tap. The 44 px hit area has no layout cost. */
+export function Tip({ term, children }: { term: string; children: ReactNode }) {
+  const id = useId();
+  return (
+    <span className="tip">
+      <button type="button" className="tip-btn" aria-label={`What is ${term}?`} aria-describedby={id}>
+        <InfoCircle size={16} />
+      </button>
+      <span role="tooltip" id={id} className="tip-bubble">
+        {children}
+      </span>
+    </span>
   );
 }

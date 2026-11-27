@@ -10,7 +10,7 @@ import { Affected } from "./Affected.tsx";
 import { useOkbPrice, useSiteStatus, type SiteStatus } from "./okx.ts";
 import { ageText, statusOf, type Action, type StatusView } from "./statusModel.ts";
 import { OpenNewWindow, Refresh, ShieldAlert, ShieldCheck, WarningTriangle } from "./icons.tsx";
-import { CopyField, Fold, Loading } from "./ui.tsx";
+import { CopyField, Fold, Loading, Tip } from "./ui.tsx";
 
 type Table = { ok: true; rows: Row[]; v1: boolean } | { ok: false; error: string };
 
@@ -193,6 +193,8 @@ function StatusHero({ view, copyUrl, onRetry, chainFetchedAt, siteCheckedAt, now
   );
 }
 
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
 const OBSERVED: Record<number, string> = { 1: "sha256 of the page the watcher fetched", 2: "hash of the domain evidence the watcher compared", 3: "sha256 of the page the watcher fetched" };
 
 /** Evidence next to the status: the live release, the latest onchain alert, and the website check. Each says where it comes from. */
@@ -203,19 +205,31 @@ function Evidence({ s, site, siteData, now, onRetry }: { s: Snapshot; site: Retu
   return (
     <section className="evidence" aria-label="Evidence">
       <div className="ev-block">
-        <h2>Live release</h2>
+        <h2>
+          Live release
+          <Tip term="the live release">The version of the website files the maintainers approved on the blockchain. The real website should match it.</Tip>
+        </h2>
         <p className="big" data-testid="live-release">
           {s.info.liveRelease === 0n ? "none yet" : `v${s.info.liveRelease}`}
         </p>
         {live && (
           <dl className="facts">
-            <dt>Root</dt>
+            <dt>
+              Root
+              <Tip term="the root">A fingerprint of every file in the release. Maintainers sign this value when they approve.</Tip>
+            </dt>
             <dd>
               <CopyField value={live.root} shown={short(live.root)} label="release root" />
             </dd>
-            <dt>Chunks</dt>
+            <dt>
+              Chunks
+              <Tip term="chunks">The release is stored on the chain in pieces of up to 24 KB. This is how many pieces it has.</Tip>
+            </dt>
             <dd>{live.totalChunks}</dd>
-            <dt>Approvals</dt>
+            <dt>
+              Approvals
+              <Tip term="approvals">How many of the 3 maintainers signed off on this release, and which ones.</Tip>
+            </dt>
             <dd>
               {live.approvalCount}/3 ({approvers(live.approvals).map((i) => `M${i + 1}`).join(", ")})
             </dd>
@@ -225,16 +239,23 @@ function Evidence({ s, site, siteData, now, onRetry }: { s: Snapshot; site: Retu
       </div>
 
       <div className="ev-block">
-        <h2>Latest alert</h2>
+        <h2>
+          Latest alert
+          <Tip term="the latest alert">The newest report the watcher wrote to the chain. "All clear" means the problem it reported earlier has ended.</Tip>
+        </h2>
         {a.kind === 0 ? (
           <p>None reported onchain yet.</p>
         ) : (
           <>
-            <p className="ev-value">
-              {ALERT_KIND[a.kind] ?? "alert"} · {ago(s.now - a.at)} ago · release v{a.release.toString()}
+            <p className="ev-value">{cap(ALERT_KIND[a.kind] ?? "alert")}</p>
+            <p className="small muted">
+              {ago(s.now - a.at)} ago · while release v{a.release.toString()} was live
             </p>
             <dl className="facts">
-              <dt>Observed</dt>
+              <dt>
+                Observed
+                <Tip term="the observed hash">A fingerprint of what the watcher saw when it raised this alert.</Tip>
+              </dt>
               <dd>
                 <CopyField value={a.observed} shown={short(a.observed)} label="observed hash" />
               </dd>
@@ -246,7 +267,10 @@ function Evidence({ s, site, siteData, now, onRetry }: { s: Snapshot; site: Retu
       </div>
 
       <div className="ev-block" data-testid="live-check">
-        <h2>Website check</h2>
+        <h2>
+          Website check
+          <Tip term="the website check">A fresh comparison of the live website with the approved release, done by the status server. It is one network's view.</Tip>
+        </h2>
         {site.isPending && <p className="muted">Checking now…</p>}
         {site.isError && (
           <>
@@ -406,9 +430,15 @@ function Releases({ s, target }: { s: Snapshot; target: Target }) {
                 })}
               </ul>
             </dd>
-            <dt>Timelock</dt>
+            <dt>
+              Timelock
+              <Tip term="the timelock">A waiting period after a release is sealed, so everyone can look at it before it can go live.</Tip>
+            </dt>
             <dd>{timelockText(r, s)}</dd>
-            <dt>Can go live now</dt>
+            <dt>
+              Can go live now
+              <Tip term="can go live now">The gate's own answer: do the approvals so far, and the timelock, allow this release to be activated?</Tip>
+            </dt>
             <dd>{r.status === "pending" ? (r.wouldAllow ? <span className="good">yes</span> : "no") : "–"}</dd>
           </dl>
           {r.status === "pending" && (

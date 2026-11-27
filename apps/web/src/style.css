@@ -874,3 +874,84 @@ th.num {
 .wallet-list .wallet-hint {
   padding: var(--s1) var(--s2);
 }
+
+/* aligned facts, compact copy buttons, tooltips */
+.facts {
+  align-items: center;
+}
+.facts dt {
+  font-size: var(--fs-s);
+  line-height: 1.5;
+}
+.facts dd {
+  line-height: 1.5;
+}
+.copyfield {
+  gap: var(--s0);
+}
+.copyfield button.icon-only {
+  margin: -8px 0;
+}
+.ev-block h2 {
+  display: flex;
+  align-items: center;
+  gap: var(--s0);
+}
+.tip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-left: var(--s0);
+  vertical-align: middle;
+}
+.tip-btn {
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  margin: -12px -12px -12px -8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+.tip-btn:hover:not(:disabled) {
+  background: transparent;
+  color: var(--ink);
+}
+.tip-bubble {
+  display: none;
+  position: absolute;
+  z-index: 5;
+  top: 100%;
+  left: 0;
+  width: max-content;
+  max-width: min(260px, 72vw);
+  margin-top: var(--s0);
+  padding: var(--s1) var(--s2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-ctl);
+  background: var(--surface);
+  color: var(--ink);
+  font: 400 var(--fs-s) / 1.5 var(--sans);
+  text-align: left;
+  box-shadow: 0 8px 16px color-mix(in srgb, var(--base) 80%, transparent);
+}
+.tip:hover .tip-bubble,
+.tip:focus-within .tip-bubble {
+  display: block;
+}
+.ev-block:last-child .tip-bubble {
+  left: auto;
+  right: 0;
+}
+@media (max-width: 640px) {
+  .tip-bubble {
+    position: fixed;
+    left: var(--s2);
+    right: var(--s2);
+    top: auto;
+    bottom: var(--s2);
+    max-width: none;
+    width: auto;
+  }
+}
