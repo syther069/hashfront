@@ -16,4 +16,3 @@ hashfront.json
 apps/*/dist-v*/
 /dist/
 /public/
-/api/

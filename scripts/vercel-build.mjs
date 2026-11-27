@@ -1,6 +1,9 @@
 // Vercel build for the hashfront-status project when it deploys from GitHub (the same result as scripts/deploy-status.ps1).
 // Builds the status page with the gate baked in, then lays the output out the way Vercel serves it:
-//   public/  the static site          api/  the bundled Vercel Functions (self-contained, no node_modules needed)
+//   public/  the static site (not in git)
+//   api/     the bundled Vercel Functions (self-contained, no node_modules needed). This one IS in git: Vercel looks for api/ before
+//            the build runs, so functions created only during the build are never deployed. The build rewrites it to the same bytes;
+//            `git diff api` after a build must be empty, or the committed bundle is stale.
 // The gate and network come from hashfront.example.json (hashfront.json is local and not in git). Without VITE_GATE the page would
 // silently become the generic one that reads the gate from the link, so the build refuses to continue if the gate is not in it.
 import { spawnSync } from "node:child_process";
@@ -22,5 +25,5 @@ if (!baked) throw new Error(`the gate ${cfg.gate} is not in the built bundle; re
 rmSync(join(root, "public"), { recursive: true, force: true });
 rmSync(join(root, "api"), { recursive: true, force: true });
 cpSync(dist, join(root, "public"), { recursive: true, filter: (src) => !src.endsWith(join("dist", "api")) && !src.includes(join("dist", "api") + "\\") && !src.includes(join("dist", "api") + "/") });
-cpSync(join(dist, "api"), join(root, "api"), { recursive: true });
+cpSync(join(dist, "api"), join(root, "api"), { recursive: true, filter: (src) => !/\.(svg|png)$/.test(src) });
 console.log(`Gate ${cfg.gate} is baked in. public/ and api/ are ready.`);
