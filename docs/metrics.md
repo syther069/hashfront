@@ -1,17 +1,37 @@
 # Watcher metrics
 
-No long run has been measured yet. This file is replaced by the output of `scripts/metrics-report.ts` after the 24 hour run (plan task D1), and it will only ever contain measured numbers.
+Generated 2026-11-27T15:10:49.688Z from `.watcher/watch.jsonl` by `scripts/metrics-report.ts`. Numbers are measured, not estimated.
 
-How to produce it:
+## Coverage
 
-```powershell
-# 1. run the watcher with a log (OKX keys are typed at hidden prompts by scripts/with-okx.ps1)
-pwsh scripts/with-okx.ps1 pwsh scripts/run-watcher.ps1 -Site https://hashswap-demo.vercel.app/ -Log .watcher/watch.jsonl
+- Window: 2026-11-27T07:02:01.479Z to 2026-11-27T15:01:38.766Z (0.3 days)
+- Checks: 960 at about 30 s; error lines: 0; unreadable lines skipped: 0
+- Uptime: **100 %** (checks that ran over checks expected at the usual interval)
+- Gaps longer than 3 intervals: 0
+- Statuses: MATCH 957, MISMATCH 3
 
-# 2. after 24 hours or more, build the report; mark rehearsal windows so their alerts are not counted as false alarms
-node scripts/metrics-report.ts --log .watcher/watch.jsonl --out docs/metrics.md --drill 2026-12-03T10:00:00Z,2026-12-03T10:30:00Z
-```
+## Latency (ms)
 
-What the report states: checks and uptime (checks that ran over checks expected, with gaps listed), p50 and p95 of the whole check, the chain reads and each OKX endpoint, incidents with the time from the first bad check to the first delivered community alert, and false alarms (community alerts outside a declared rehearsal window).
+| | p50 | p95 | max |
+|---|---|---|---|
+| whole check | 4550 | 10545 | 17257 |
+| chain reads (RPC) | 1083 | 2058 | |
+| OKX API | no OKX call in this log | | |
 
-The one measurement we have so far is from the mainnet rehearsal on Nov 20, 2026: hijacked build live at 09:49:32 UTC, mismatch seen after 21 s, community alert on chain at 09:50:23 UTC, 51 s after the hijack ([`evidence-hijack-rehearsal.md`](evidence-hijack-rehearsal.md)).
+## Incidents
+
+| Started (UTC) | Ended | Statuses | Time to alert | Drill |
+|---|---|---|---|---|
+| 2026-11-27T07:04:31.514Z | 2026-11-27T07:06:01.522Z | MISMATCH | 30 s | yes |
+
+Community alerts delivered: 2. **False alarms: 0** (alerts outside a declared rehearsal window).
+
+
+## Notes added by hand (not generated)
+
+- **Which log:** the numbers come from the first 8 hours of one continuous watcher run (`.watcher/watch.jsonl`, lines from 07:02:01 to 15:01:38 UTC on 2026-11-27; 960 checks). The same file also holds an earlier 4 h 31 min stretch from 2026-11-26 and a 13 h 55 min gap while the watcher was stopped; those are left out, so the uptime figure is for the 8 h run only. "0.3 days" above is that 8 h (the header text names the whole log file).
+- **Watched site:** the demo site `https://hashswap-demo.vercel.app/`, checked from one home network. Uptime means "the watcher ran its check on schedule", not that the site was up.
+- **The one incident is a rehearsal:** a live hijack of the demo site, declared with `--drill 2026-11-27T07:04:00Z,2026-11-27T07:08:00Z`. The hijack went live at 07:04:17, the first MISMATCH check was 07:04:31, the alert went out at 07:05:01 (44 s after the hijack went live; the table's 30 s counts from the first MISMATCH check). The alert went by Telegram and by TapeSend through the OKX Gateway. Evidence: `docs/evidence-okx-gateway-alert.md`.
+- **False alarms: 0** means no community alert outside that window in this run. One run and one drill are too little to claim a false-alarm rate.
+- **Signals:** in 693 of 960 checks (72 %) the Certificate Transparency lookup was unavailable (in every one of those checks CertSpotter answered HTTP 403, and crt.sh timed out 462 times, answered HTTP 502 198 times and HTTP 404 33 times). That is reported as `info`, not as an alert, so the CT signal was not a working protection in this run. In one check (11:02:05 UTC) the DNS lookup answered `unknown`; the next check was `ok` and no alert was sent.
+- **"OKX API: no OKX call":** the OnchainOS scan in this run went through the `onchainos` command line, which does not report per-call latency, so there is no OKX API latency figure. The OKX Gateway was used for the two alerts only.
