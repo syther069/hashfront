@@ -130,6 +130,12 @@ async function openFold(page: Page, testId: string) {
   if (!(await fold.evaluate((e) => (e as HTMLDetailsElement).open))) await fold.locator("summary").click();
 }
 
+/** The header offers the browser wallet(s) and the OKX app (QR code); picks the first browser wallet. */
+async function connectBrowserWallet(page: Page) {
+  await page.getByTestId("wallet-connect").click();
+  await page.locator(".wallet-list button").filter({ hasNotText: /QR code/ }).first().click();
+}
+
 test("status page, then a maintainer approves in the browser and the status updates", async () => {
   const q = `?gate=${h.gate}&network=local&rpc=${encodeURIComponent(h.rpc)}`;
   const page = await walletPage(ADDR.m2);
@@ -166,6 +172,7 @@ test("status page, then a maintainer approves in the browser and the status upda
 
   // the real manifest: verified, file list shown, Approve enabled
   await page.getByTestId("manifest-input").setInputFiles(path.join(h.workDir, "manifest.json"));
+  await page.waitForFunction(() => /matches the onchain root/.test(document.querySelector('[data-testid="manifest-verdict"]')?.textContent ?? ""));
   assert.match(await page.getByTestId("manifest-verdict").innerText(), /matches the onchain root of v1: 3 files/);
   assert.equal(await page.locator('[data-testid="manifest-files"] tbody tr').count(), 3);
   assert.equal(await approve.isDisabled(), false);
@@ -482,7 +489,9 @@ test("the header connects a wallet and shows the address with a disconnect (exit
   await connect.waitFor();
   await page.locator("header").screenshot({ path: SHOTS ? path.join(SHOTS, "header-disconnected.png") : "/dev/null" }).catch(() => undefined);
   assert.match(await connect.innerText(), /Connect wallet/);
-  await connect.click();
+  await page.getByTestId("wallet-connect").click();
+  assert.equal(await page.locator(".wallet-list button", { hasText: /OKX Wallet app \(QR code\)/ }).count(), 1, "OKX Connect is offered next to the browser wallet");
+  await page.locator(".wallet-list button").filter({ hasNotText: /QR code/ }).first().click();
   const address = page.getByTestId("wallet-address");
   await address.waitFor();
   assert.equal(await address.getAttribute("title"), ADDR.m1);
@@ -502,7 +511,7 @@ test("the wallet in the header is the same connection as the approve page", asyn
   const q = `?gate=${h.gate}&network=local&rpc=${encodeURIComponent(h.rpc)}`;
   const page = await walletPage(ADDR.m2);
   await page.goto(`${base}index.html${q}#/approve/1`);
-  await page.getByTestId("wallet-connect").click();
+  await connectBrowserWallet(page);
   await page.getByText("(maintainer M2)").waitFor({ timeout: 8000 }).catch(async (e: unknown) => {
     throw new Error(`${String(e).slice(0, 80)}; the page says: ${(await page.locator("body").innerText()).replace(/\n+/g, " | ").slice(0, 900)}`);
   });
