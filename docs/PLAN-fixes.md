@@ -4,6 +4,100 @@
 
 **Deadline:** submit by **Dec 6**; Dec 7, 23:59 UTC is buffer only.
 
+---
+
+## Revision, Nov 28: the path to 9/10. This section wins over the rest of the file.
+
+**Why the plan changed:**
+- **The OKX Gateway alert was never proven live.** F1 found that the Nov 27 alert went over the plain RPC, because the watcher ran without the OKX keys.
+- **16 tasks won't fit in 8 days.** Some must be cut.
+- **The biggest gaps aren't code.** They are users, the demo video, and how central TapeOut is.
+
+The official criteria and the FAQ say that judges score "the potential to expand TapeOut into new use cases", "Ecosystem Integration", and "explain which features use TapeOut". They also say "only work completed during the event will be judged".
+
+**What wins web3 hackathons,** from judge and organiser write-ups:
+- a demo the judges understand in one go, recorded so it can't fail live
+- fit with the sponsor's own goals (here: TapeOut usage and X Layer activity)
+- a working end-to-end product, not a show piece
+- proof that real people want it
+
+### New tasks (do these first)
+
+**N1: prove the OKX Gateway alert live** (1 h, ⛓ needs a "go", about 0.00001 OKB)
+- **Run:** `pwsh scripts/with-okx.ps1 pwsh scripts/run-watcher.ps1 -Site https://hashswap-demo.vercel.app/ -TelegramChat 6977270776 -Log .watcher/watch.jsonl`, then the hijack and restore steps in `docs/RUNBOOK-hijack-e2.md`.
+- **Done when:** the log line says `via okx-gateway+rpc (OKX order …)`.
+- **Record it:** the tx and order id go into `docs/evidence-okx-gateway-alert.md` and the README OKX table. Remove the "not yet proven" wording.
+- **Needs F2 first:** the reporter top-up.
+
+**N2: other TapeOut teams as the first users** (the user-value fix; user 3 h, Claude 2 h)
+- **Why:** cold DMs to big protocols rarely answer in 8 days. The hackathon's own Telegram (https://t.me/+-7ouB60aYig2MmM1) is full of teams that ship a DeWEB site *and* a normal domain. They are the exact target user, reachable this week. Every one we protect is also TapeOut ecosystem growth, which judges score.
+- **Claude:**
+  - write `docs/onboarding-15min.md`: `hashfront init` on their site, the watcher and the badge
+  - add `hashfront init --dry-run` output to it, so a team can see the cost first
+  - draft a short Telegram post for the user to send
+- **User:**
+  - posts in the hackathon Telegram: "free hijack watch for your DeWEB project; 15 min setup"
+  - helps 1–3 teams set it up
+  - **with their permission**, lists them in the README as "Protected projects" with their status badge
+- **Done when:**
+  - at least one team other than us is watched live, or
+  - the README honestly says how many were asked and how many said yes
+
+**N3: TapeOut at the centre, not on the side** (4 h; replaces F13)
+- **A reusable circuit:** turn the release policy into a **public, reusable "release policy" circuit**, so another TapeOut project can point its own gate at it. Document the circuit's processor, ID, inputs and truth table in `circuits/README.md` as "use this circuit in your project".
+  - First read `contracts/src/ReleaseGate.sol` (constructor: `processor_`, `policyId_`) and `circuits/`.
+  - If a new gate can reuse circuit #4 without deploying a new one, say so and show it in a fork test. If it can't, explain why, and how a team would tape out their own copy.
+- **Policy as data:** if the gate supports changing the policy circuit, demo one policy swap. If not, write it as a known limit with the design for v2. Don't redeploy the gate.
+- **TapeSend alerts users can subscribe to:**
+  - First check whether a user's own TapeSend endpoint can be added to `--tapesend-to` (`resolveRecipients` in `packages/watcher/src/alerts/tapesend.ts`; TAP-10 endpoint ids).
+  - If it can, add a "Get alerts on TapeSend" box on the status page that shows the endpoint format, and send the next alert to one real user inbox as well as `self`.
+  - This turns the onchain alert from a log entry into a channel that reaches people.
+- **README, one table "Where TapeOut is used":** each feature, the contract or ID, and what breaks without it. The FAQ asks for exactly this.
+
+**N4: the demo video, earlier and as the backbone** (move F14 to Dec 3; a re-record is allowed on Dec 5)
+- **Structure:** problem (15 s) → who and who pays (15 s) → live hijack on our domain (60 s) → Guard blocks the signature (20 s) → OKX Gateway alert + TapeSend + Telegram (25 s) → revoke + verified copy (25 s) → "where TapeOut is used" + the adopters from N2 (20 s).
+- **Recording:** record a clean take as the backup; a live demo on Demo Day only if shortlisted.
+
+### Keep, in this order
+
+1. **F2** reporter top-up (user, today)
+2. **N1** Gateway live proof
+3. **F9** domain: **decide today**. The demo pitch depends on it. Without it, everything says "frontend integrity", not "DNS hijack".
+4. **F5** alert can't lock users out (small, prevents an embarrassing failure)
+5. **N2** TapeOut teams onboarding (start today, runs all week)
+6. **N3** TapeOut at the centre
+7. **F6** CT key or honest wording
+8. **F4, but smaller** (2 h): only the DOM script and stylesheet list check against `status.assets`, without the asset re-fetch. Judges won't test cloaking; it just must not be false in the README.
+9. **F10, but smaller** (1 h): the site list comes from config, no store submission
+10. **N4 / F14** video on Dec 3, re-record allowed on Dec 5
+11. **F16** final pass, submission form Dec 6
+
+### Cut or defer, and why
+
+| Task | Decision | Why |
+|---|---|---|
+| F7 | merged into N2 | cold outreach to big protocols is a long shot this week; send the DMs anyway, but don't plan on replies |
+| F8 | optional | only if two friends are available on short notice; otherwise state it in the README |
+| F11 | optional | rate limit: a Vercel Firewall rule, 15 min, only if the user wants it |
+| F12 | → simple | keep the PC watcher running Dec 3–10 and state that; no hosted move |
+| F13 | merged into N3 | |
+| F15 | do it | remove the guardian (ask first): 30 min, and less to explain |
+
+### Honest score outlook
+
+| Criterion | Now | With this plan | What decides it |
+|---|---|---|---|
+| User value and commercial | 5 | 7–8 | N2 adopters; real replies |
+| Innovation | 7 | 8 | N3 reusable circuit + TapeSend subscriptions |
+| Ecosystem integration | 8 | 9 | N1 + N3 + the "where TapeOut is used" table |
+| Product readiness and UX | 7 | 8 | domain demo, F5, Guard |
+| Demo video | 3 | 9 | N4, rehearsed |
+| **Overall** | **about 6** | **8.5–9** | |
+
+**9/10 needs N2 to land:** at least one other team protected live. Without it, expect about 8.
+
+**What is not in our control:** how many teams enter, and what the judges weigh most.
+
 **Rules (unchanged):**
 - **Commits** are authored by `syther069` only, with no Claude or Co-Authored-By lines.
 - **Branches and PRs:** one branch and one PR per task, and CI must be green before merging.
@@ -213,10 +307,10 @@
 | ID | Task | Owner | Status |
 |---|---|---|---|
 | F1 | README matches evidence | Claude | done (PR `docs/f1-readme-truth`); found the E2 alert went via RPC, not the Gateway |
-| F2 | Reporter top-up | user | todo |
+| F2 | Reporter top-up | user | todo (Nov 28: reporter still 0.000033 OKB) |
 | F3 | Hygiene, merge author name | Claude + user | scratch file removed (PR `chore/f3-hygiene`); merge-author name: user to choose |
 | F4 | Guard DOM check (anti-cloaking) | Claude | todo |
-| F5 | Alert can't lock out users | Claude | todo |
+| F5 | Alert can't lock out users | Claude | done (`fix/f5-alert-not-lockout`): feed `warn` + `alertOpen`, Guard banner, status page amber; Guard e2e uses a mocked feed, the server rule is unit-tested |
 | F6 | CT key or honest wording | Claude + user | todo |
 | F7 | Users, one adopter, go-to-market | user + Claude | todo |
 | F8 | Real maintainers ⛓ | user + Claude | todo |
