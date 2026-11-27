@@ -50,6 +50,26 @@ test("an alert stays open even when the status server currently sees a match, an
   assert.match(v.detail, /not been closed onchain/);
 });
 
+test("an open alert on a site the status server freshly sees serving the approved release is amber, not red", () => {
+  const v = statusOf(with_((i) => ((i.chain.facts = chainFacts({ alertKind: 1, alertAgeS: 300, alertRelease: 2n })), (i.site.facts = { status: "warn", liveRelease: 2, checkedAtMs: NOW - 10_000 }))));
+  assert.equal(v.kind, "alert-site-matches");
+  assert.equal(v.tone, "warn");
+  assert.equal(v.headline, "Alert open, site currently matches");
+  assert.match(v.detail, /has not been closed/);
+  assert.equal(v.primary, "verified-copy");
+});
+
+test("the amber state needs a fresh check of the same release; otherwise the open alert stays red", () => {
+  const alert = chainFacts({ alertKind: 2, alertAgeS: 30 });
+  for (const site of [
+    { pending: false, failed: false, facts: { status: "warn" as const, liveRelease: 2, checkedAtMs: NOW - SITE_STALE_MS - 1 } },
+    { pending: false, failed: false, facts: { status: "warn" as const, liveRelease: 1, checkedAtMs: NOW - 1_000 } },
+    { pending: false, failed: true, facts: { status: "warn" as const, liveRelease: 2, checkedAtMs: NOW - 1_000 } },
+  ]) {
+    assert.equal(statusOf(with_((i) => ((i.chain.facts = alert), (i.site = site)))).kind, "alert");
+  }
+});
+
 test("a mismatch seen by the status server before any onchain alert is a red state that says it is not onchain yet", () => {
   const v = statusOf(with_((i) => (i.site.facts = { status: "alert", liveRelease: 2, checkedAtMs: NOW - 4_000 })));
   assert.equal(v.kind, "site-differs");

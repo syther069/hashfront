@@ -30,7 +30,7 @@
   // The independent check: hash the page this browser actually gets from the host and compare it with the
   // approved hash, so a watcher that was shown a clean page does not decide for us.
   let local = null;
-  if (status && status.status === "ok" && status.site === location.origin) {
+  if (status && (status.status === "ok" || status.status === "warn") && status.site === location.origin) {
     try {
       const res = await fetch(location.origin + "/", { cache: "no-store" });
       if (res.ok) local = await G.sha256Hex(await res.arrayBuffer());
@@ -40,9 +40,43 @@
   }
 
   const decision = G.decide(status, location.origin, local);
+  if (decision.reason === "warn") showBanner(config);
   if (!decision.block) return allow();
   tell({ block: true });
   showOverlay(decision.reason, G.safeSuspects(status), config, allow);
+
+  // A small bar at the top for an open alert on a page that matches its approved release. Signing is not blocked.
+  function showBanner(cfg) {
+    const host = document.createElement("hashfront-guard-banner");
+    const root = host.attachShadow({ mode: "closed" });
+    const style = document.createElement("style");
+    style.textContent =
+      ":host{all:initial}" +
+      ".bar{position:fixed;top:0;left:0;right:0;z-index:2147483647;display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;padding:8px 16px;background:#2e2a1f;border-bottom:1px solid #e0a84f;color:#e8e2d3;font:14px/1.4 system-ui,-apple-system,'Segoe UI',sans-serif}" +
+      "p{margin:0;flex:1 1 280px}" +
+      "a{color:#f3d9a8}" +
+      "button{min-height:32px;padding:0 12px;border-radius:6px;background:transparent;color:#e8e2d3;border:1px solid #8a7a55;font:inherit;cursor:pointer}";
+    const bar = document.createElement("div");
+    bar.className = "bar";
+    bar.setAttribute("role", "status");
+    bar.dataset.hfBanner = "warn";
+    const p = document.createElement("p");
+    p.textContent = "An alert is open for this site; the page currently matches its approved release. Check the status page. ";
+    if (typeof cfg.statusPageUrl === "string" && /^https:\/\//.test(cfg.statusPageUrl)) {
+      const a = document.createElement("a");
+      a.href = cfg.statusPageUrl;
+      a.rel = "noopener noreferrer";
+      a.textContent = "Status page";
+      p.append(a);
+    }
+    const close = document.createElement("button");
+    close.type = "button";
+    close.textContent = "Dismiss";
+    close.addEventListener("click", () => host.remove());
+    bar.append(p, close);
+    root.append(style, bar);
+    document.documentElement.append(host);
+  }
 
   function showOverlay(reason, suspects, cfg, lift) {
     const host = document.createElement("hashfront-guard");

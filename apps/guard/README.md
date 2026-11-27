@@ -4,7 +4,8 @@ A Manifest V3 browser extension (Chrome, Edge, Brave) that stops a wallet signat
 
 ## What it does
 
-- Reads `GET /api/status` of the protected protocol (cached 20 s). The feed says `ok`, `alert` or `unknown`, plus the approved hash of `index.html`.
+- Reads `GET /api/status` of the protected protocol (cached 20 s). The feed says `ok`, `warn`, `alert` or `unknown`, plus the approved hash of `index.html`. `alert` means the status server sees the host serving a mismatch right now; `warn` means an onchain alert is open but the host serves the approved release.
+- On `warn`, it shows a small bar at the top ("An alert is open for this site; the page currently matches its approved release") and blocks nothing, unless its own hash check of the page fails. So a stale alert, or a false one sent with a stolen reporter key, can warn users but never lock them out of the real site.
 - On `alert`, it shows a full-page warning with the verified-copy link and the suspected attacker addresses, and rejects `eth_sendTransaction`, `eth_signTypedData*`, `personal_sign`, `eth_sign` and `wallet_sendCalls` with error 4001 (user rejected). Reads such as `eth_chainId` still work.
 - It also hashes the page this browser actually receives and compares it with the approved hash, so a watcher that was shown a clean page does not decide for the user.
 - "I understand the risk" lifts the block for that page, with a real click only.

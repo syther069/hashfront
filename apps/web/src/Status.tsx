@@ -290,7 +290,7 @@ function Evidence({ s, site, siteData, now, onRetry }: { s: Snapshot; site: Retu
         )}
         {siteData && checked !== undefined && (
           <>
-            <p className="ev-value">{siteData.status === "ok" ? `Matches release v${siteData.liveRelease}` : siteData.status === "alert" ? "Differs from the approved release" : "Could not be confirmed"}</p>
+            <p className="ev-value">{siteData.status === "ok" ? `Matches release v${siteData.liveRelease}` : siteData.status === "warn" ? `Matches release v${siteData.liveRelease} (an alert is open)` : siteData.status === "alert" ? "Differs from the approved release" : "Could not be confirmed"}</p>
             <p className="small muted">
               {utc(checked)} ({ageText((now - checked) / 1000)} ago)
             </p>

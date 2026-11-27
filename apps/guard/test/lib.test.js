@@ -21,6 +21,12 @@ test("hash differences do not count while the feed is unknown (host behind, CDN)
   assert.equal(decide(ok, SITE, null).block, false);
 });
 
+test("warn (an open alert on a site that matches) never blocks; a different page under warn still does", () => {
+  assert.deepEqual(decide({ ...ok, status: "warn" }, SITE, ROOT), { block: false, reason: "warn" });
+  assert.deepEqual(decide({ ...ok, status: "warn" }, SITE, null), { block: false, reason: "warn" });
+  assert.deepEqual(decide({ ...ok, status: "warn" }, SITE, "0x" + "cd".repeat(32)), { block: true, reason: "hash" });
+});
+
 test("a missing feed, a feed for another site, or garbage never blocks", () => {
   assert.equal(decide(null, SITE, ROOT).block, false);
   assert.equal(decide(ok, "https://other.example", ROOT).reason, "other-site");

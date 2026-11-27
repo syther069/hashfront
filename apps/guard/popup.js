@@ -6,6 +6,9 @@ chrome.runtime.sendMessage({ type: "status" }).then((reply) => {
   } else if (status.status === "alert") {
     state.textContent = "ALERT: " + status.site + " does not match its approved release.";
     state.className = "alert";
+  } else if (status.status === "warn") {
+    state.textContent = "WARNING: an alert is open for " + status.site + ", but it currently matches release v" + status.liveRelease + ". Nothing is blocked; check the status page.";
+    state.className = "warn";
   } else if (status.status === "ok") {
     state.textContent = "OK: " + status.site + " matches release v" + status.liveRelease + ".";
     state.className = "ok";

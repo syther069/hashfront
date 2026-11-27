@@ -40,7 +40,9 @@ export function useApprovals(address: string | undefined) {
 /** The status server's own check of the protected website against the live release (GET /api/status). */
 export interface SiteStatus {
   site: string;
-  status: "ok" | "alert" | "unknown";
+  /** warn: an onchain alert is open but the site serves the approved release (never a reason to block) */
+  status: "ok" | "warn" | "alert" | "unknown";
+  alertOpen: boolean;
   liveRelease: number;
   rootHash: string;
   suspects: string[];
