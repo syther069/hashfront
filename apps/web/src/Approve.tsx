@@ -1,6 +1,7 @@
 // Maintainer approve page. The approval signs the onchain root and chunk count of the release, never values from the
 // loaded manifest; the manifest is only there so a human can see what that root contains, and it is shown only once
 // it recomputes to exactly that root.
+import { connectorLabel, visibleConnectors } from "./connectors.ts";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAccount, useConnect, useDisconnect, usePublicClient, useSwitchChain, useWalletClient } from "wagmi";
@@ -66,7 +67,8 @@ function ApproveInner({ target, id }: { target: Target; id: bigint }) {
 
   // the wallet's own chain, which can be one this page's config does not know (useChainId would not show that)
   const { address, isConnected, chainId: walletChainId } = useAccount();
-  const { connectors, connect, error: connectError } = useConnect();
+  const { connectors: all, connect, error: connectError } = useConnect();
+  const connectors = visibleConnectors(all);
   const { disconnect } = useDisconnect();
   const { switchChain } = useSwitchChain();
   const { data: walletClient } = useWalletClient();
@@ -178,7 +180,7 @@ function ApproveInner({ target, id }: { target: Target; id: bigint }) {
             {/* connect on whatever chain the wallet is on; a wrong chain then shows a switch button instead of a stuck connect */}
             {connectors.map((c) => (
               <button key={c.uid} type="button" className="primary" onClick={() => connect({ connector: c })} data-testid="connect">
-                <Wallet /> Connect {c.name}
+                <Wallet /> Connect {connectorLabel(c)}
               </button>
             ))}
             {connectError && <span className="error">{connectError.message}</span>}

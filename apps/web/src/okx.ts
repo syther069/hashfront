@@ -8,9 +8,16 @@ export interface PriceInfo {
   time: number;
 }
 
+/** Thrown when the host has no /api at all (the DeWEB copy, a plain static host): retrying cannot help. */
+export class NoApiError extends Error {
+  constructor() {
+    super("not available on this host");
+  }
+}
+
 async function getJson<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, init);
-  if (!(res.headers.get("content-type") ?? "").includes("application/json")) throw new Error("not available on this host");
+  if (!(res.headers.get("content-type") ?? "").includes("application/json")) throw new NoApiError();
   const body = (await res.json()) as T & { error?: string };
   if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
   return body;

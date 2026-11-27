@@ -108,9 +108,12 @@ export function Fold({ title, hint, badge, openOnWide, testId, children }: { tit
 /** A small "?" next to a term: the plain-language meaning on hover, on keyboard focus, or on tap. The 44 px hit area has no layout cost. */
 export function Tip({ term, children }: { term: string; children: ReactNode }) {
   const id = useId();
+  // Esc hides it (WCAG 1.4.13); it comes back on the next hover or focus.
+  // shortcut: Esc works while the button has focus; a mouse-only visitor just moves the pointer away.
+  const [hidden, setHidden] = useState(false);
   return (
-    <span className="tip">
-      <button type="button" className="tip-btn" aria-label={`What is ${term}?`} aria-describedby={id}>
+    <span className={hidden ? "tip tip-hidden" : "tip"} onMouseEnter={() => setHidden(false)} onFocus={() => setHidden(false)}>
+      <button type="button" className="tip-btn" aria-label={`What is ${term}?`} aria-describedby={id} onKeyDown={(e) => e.key === "Escape" && setHidden(true)}>
         <InfoCircle size={16} />
       </button>
       <span role="tooltip" id={id} className="tip-bubble">

@@ -1,6 +1,7 @@
 // "Am I affected?": after a hijack, the question users actually have is whether they signed something. The OKX
 // Onchain OS security API lists every token approval an address has on X Layer; we rank them against this
 // protocol's own contracts and let the user revoke the dangerous ones from their wallet.
+import { visibleConnectors } from "./connectors.ts";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAccount, useConfig, useConnect, usePublicClient, useSendCalls, useSwitchChain, useWalletClient } from "wagmi";
@@ -84,7 +85,7 @@ export function Affected({ target, alertOpen }: { target: Target; alertOpen: boo
 
 function ConnectButton() {
   const { connectors, connect } = useConnect();
-  const c = connectors[0];
+  const c = visibleConnectors(connectors)[0];
   return c ? (
     <button type="button" className="primary" onClick={() => connect({ connector: c })}>
       <Wallet /> Connect wallet

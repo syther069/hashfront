@@ -60,17 +60,6 @@ export async function getApprovals(req: Request, deps: Deps): Promise<Response> 
   }
 }
 
-/** GET /api/suspects: addresses found only in the served site, while it differs from the live release. */
-export async function getSuspects(_req: Request, load: (() => Promise<SuspectsReport>) | undefined): Promise<Response> {
-  if (!load) return json(503, { error: "site monitoring is not configured on this host" });
-  try {
-    const r = await load();
-    return json(200, { ...r, source: "approved release on X Layer vs the live site" }, "public, s-maxage=30, stale-while-revalidate=60");
-  } catch {
-    return json(503, { error: "could not compare the site with the live release right now" });
-  }
-}
-
 /** GET /api/status: the signed-in-chain verdict on the protected site, for the Guard extension. CORS is open: it is public, read-only data. */
 export async function getStatus(_req: Request, load: (() => Promise<StatusReport>) | undefined): Promise<Response> {
   const open = { "access-control-allow-origin": "*" };

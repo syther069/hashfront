@@ -955,3 +955,6 @@ th.num {
     width: auto;
   }
 }
+.tip.tip-hidden .tip-bubble {
+  display: none;
+}

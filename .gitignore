@@ -16,3 +16,5 @@ hashfront.json
 apps/*/dist-v*/
 /dist/
 /public/
+.claude/*
+!.claude/launch.json

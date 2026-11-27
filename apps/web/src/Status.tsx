@@ -7,7 +7,7 @@ import { dewebUrl, linkFor, publicClientFor, type Target } from "./config.ts";
 import { ago, ALERT_KIND, approvers, contextFor, readSnapshot, short, type ReleaseRow, type Snapshot } from "./chain.ts";
 import { inputNames, isPolicyV1, truthTable, type Row } from "./truthTable.ts";
 import { Affected } from "./Affected.tsx";
-import { useOkbPrice, useSiteStatus, type SiteStatus } from "./okx.ts";
+import { NoApiError, useOkbPrice, useSiteStatus, type SiteStatus } from "./okx.ts";
 import { ageText, statusOf, type Action, type StatusView } from "./statusModel.ts";
 import { OpenNewWindow, Refresh, ShieldAlert, ShieldCheck, WarningTriangle } from "./icons.tsx";
 import { CopyField, Fold, Loading, Tip } from "./ui.tsx";
@@ -71,6 +71,7 @@ export function Status({ target }: { target: Target }) {
     site: {
       pending: site.isPending,
       failed: site.isError,
+      absent: site.error instanceof NoApiError,
       facts: siteData && { status: siteData.status, liveRelease: siteData.liveRelease, checkedAtMs: Date.parse(siteData.checkedAt) },
     },
     hasVerifiedCopy: Boolean(copyUrl),
@@ -157,8 +158,8 @@ function StatusHero({ view, copyUrl, onRetry, chainFetchedAt, siteCheckedAt, now
     return null;
   };
   return (
-    <section className="hero" data-state={view.tone === "bad" ? "alert" : view.tone === "good" ? "ok" : view.tone} data-kind={view.kind} data-testid="alert-state" aria-live="polite">
-      <div className="hero-head">
+    <section className="hero" data-state={view.tone === "bad" ? "alert" : view.tone === "good" ? "ok" : view.tone} data-kind={view.kind} data-testid="alert-state">
+      <div className="hero-head" aria-live="polite">
         <Icon size={32} />
         <div>
           <h1>{view.headline}</h1>
@@ -272,7 +273,13 @@ function Evidence({ s, site, siteData, now, onRetry }: { s: Snapshot; site: Retu
           <Tip term="the website check">A fresh comparison of the live website with the approved release, done by the status server. It is one network's view.</Tip>
         </h2>
         {site.isPending && <p className="muted">Checking now…</p>}
-        {site.isError && (
+        {site.error instanceof NoApiError && (
+          <>
+            <p className="ev-value">Not on this copy</p>
+            <p className="small muted">This host has no status server, so there is no website check here.</p>
+          </>
+        )}
+        {site.isError && !(site.error instanceof NoApiError) && (
           <>
             <p className="ev-value">Unavailable</p>
             <p className="small muted">{site.error.message}</p>

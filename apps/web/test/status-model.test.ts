@@ -150,3 +150,19 @@ test("age text is short and honest", () => {
   assert.equal(ageText(90), "2 min");
   assert.equal(ageText(3 * 3600), "3 h");
 });
+
+test("a check time that is not a real date is no check at all: never green, never a crash", () => {
+  const v = statusOf(with_((i) => (i.site.facts = { status: "ok", liveRelease: 2, checkedAtMs: Number.NaN })));
+  assert.equal(v.kind, "no-site-check");
+  assert.equal(v.primary, "retry");
+  const alert = statusOf(with_((i) => (i.site.facts = { status: "alert", liveRelease: 2, checkedAtMs: Number.NaN })));
+  assert.notEqual(alert.kind, "matches");
+});
+
+test("on a host with no status server there is no retry button and the text says why", () => {
+  const v = statusOf(with_((i) => ((i.site.failed = true), (i.site.absent = true), (i.site.facts = undefined))));
+  assert.equal(v.kind, "no-site-check");
+  assert.equal(v.primary, "none");
+  assert.match(v.detail, /no website check/);
+  assert.equal(statusOf(with_((i) => ((i.site.failed = true), (i.site.facts = undefined)))).primary, "retry");
+});

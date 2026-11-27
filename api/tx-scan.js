@@ -1,7 +1,2 @@
-import { o as postTxScan, t as depsFromEnv } from "./__handlers-DV0s4ewm.js";
-// api/tx-scan.ts
-var deps = depsFromEnv();
-function POST(req) {
-	return postTxScan(req, deps);
-}
-export { POST };
+// Vercel finds this file before the build runs; the code is the bundle that `npm run build -w apps/web` writes to apps/web/dist/api.
+export { POST } from "../apps/web/dist/api/tx-scan.js";
