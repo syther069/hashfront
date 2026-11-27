@@ -31,7 +31,8 @@ export interface SiteFacts {
 export interface StatusInputs {
   nowMs: number;
   chain: { facts: ChainFacts | undefined; error: string | undefined; fetchedAtMs: number | undefined; refreshFailed: boolean };
-  site: { pending: boolean; failed: boolean; facts: SiteFacts | undefined };
+  /** `absent`: this host has no status server at all (the DeWEB copy, a plain static host), so retrying cannot help */
+  site: { pending: boolean; failed: boolean; absent?: boolean; facts: SiteFacts | undefined };
   hasVerifiedCopy: boolean;
 }
 
@@ -108,7 +109,8 @@ export function statusOf(i: StatusInputs): StatusView {
     return { ...base, notices, kind: "no-release", tone: "neutral", headline: "No release is live yet", detail: "Nothing has been approved and activated, so there is nothing to compare the website with.", primary: "none" };
   }
 
-  const s = i.site.facts;
+  // a check time that is not a real date cannot be judged fresh, so it counts as no check at all
+  const s = i.site.facts && Number.isFinite(i.site.facts.checkedAtMs) ? i.site.facts : undefined;
   if (!i.site.pending && !i.site.failed && s?.status === "alert") {
     return {
       ...base,
@@ -127,15 +129,20 @@ export function statusOf(i: StatusInputs): StatusView {
   if (chainNote) reasons.push(chainNote);
 
   if (i.site.pending || i.site.failed || !s) {
+    const absent = Boolean(i.site.absent) && !i.site.pending;
     return {
       ...base,
       notices,
       kind: "no-site-check",
       tone: "neutral",
       headline: "No alert reported onchain",
-      detail: i.site.pending ? "Checking the live website now." : "The live website check is unavailable right now, so this page cannot say the site matches. An open alert would show here.",
+      detail: i.site.pending
+        ? "Checking the live website now."
+        : absent
+          ? "This copy of the page has no website check, so it cannot say the site matches. An open alert would show here."
+          : "The live website check is unavailable right now, so this page cannot say the site matches. An open alert would show here.",
       reasons,
-      primary: i.site.pending ? "none" : "retry",
+      primary: i.site.pending || absent ? "none" : "retry",
       secondary: i.hasVerifiedCopy ? "verified-copy" : "none",
     };
   }

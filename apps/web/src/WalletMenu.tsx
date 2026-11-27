@@ -4,18 +4,17 @@
 import { useRef } from "react";
 import { useAccount, useConnect, useDisconnect } from "wagmi";
 import { short } from "./chain.ts";
+import { connectorLabel, visibleConnectors } from "./connectors.ts";
 import { LogOut, Wallet } from "./icons.tsx";
 
 /** OKX's documented check for the browser extension: `typeof window.okxwallet !== 'undefined'`. */
 const hasOkxWallet = () => typeof (window as unknown as { okxwallet?: unknown }).okxwallet !== "undefined";
 const OKX_DOWNLOAD = "https://web3.okx.com/download";
 
-/** The generic injected connector is named "Injected"; say what it is. */
-const label = (c: { id: string; name: string }, okx: boolean) => (c.id === "injected" ? (okx ? "OKX Wallet (browser extension)" : "Browser wallet") : c.name);
-
 export function WalletMenu() {
   const { address, isConnected, isReconnecting, connector } = useAccount();
-  const { connectors, connect, error, isPending } = useConnect();
+  const { connectors: all, connect, error, isPending } = useConnect();
+  const connectors = visibleConnectors(all);
   const { disconnect } = useDisconnect();
   const menu = useRef<HTMLDetailsElement>(null);
 
@@ -70,7 +69,7 @@ export function WalletMenu() {
                 connect({ connector: c });
               }}
             >
-              {label(c, okx)}
+              {connectorLabel(c)}
             </button>
           </li>
         ))}

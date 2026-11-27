@@ -23,31 +23,46 @@ const flag = (v?: boolean): boolean => {
 };
 
 const caip = (id: number) => `eip155:${id}`;
-const accountsOf = (ui: Ui, chainId: number): `0x${string}`[] =>
+const accountsOf = (ui: Ui): `0x${string}`[] =>
   ui.requestAccountsWithNamespace("eip155").map((a) => getAddress(a.includes(":") ? a.split(":").pop()! : a));
 
-export function okxConnect() {
-  let ui: Ui | undefined;
-  let rpcUrl: string | undefined;
+const loadSdk = async (): Promise<Ui> => {
+  const { OKXUniversalConnectUI, THEME } = await import("@okxconnect/ui");
+  return OKXUniversalConnectUI.init({
+    dappMetaData: { name: "Hashfront", icon: new URL("./hashfront-mark-256.png", location.href).href },
+    actionsConfiguration: { modals: "all", returnStrategy: "none" },
+    uiPreferences: { theme: THEME.DARK },
+    language: "en_US",
+  } as never);
+};
 
-  const load = async (): Promise<Ui> => {
-    if (ui) return ui;
-    const { OKXUniversalConnectUI, THEME } = await import("@okxconnect/ui");
-    ui = await OKXUniversalConnectUI.init({
-      dappMetaData: { name: "Hashfront", icon: new URL("./hashfront-mark-256.png", location.href).href },
-      actionsConfiguration: { modals: "all", returnStrategy: "none" },
-      uiPreferences: { theme: THEME.DARK },
-      language: "en_US",
-    } as never);
-    return ui;
-  };
+/** `loadUi` is a parameter only so a test can hand in a fake SDK. */
+export function okxConnect(loadUi: () => Promise<Ui> = loadSdk) {
+  let rpcUrl: string | undefined;
+  let announceDisconnect: () => void = () => undefined;
+  let loading: Promise<Ui> | undefined;
+
+  // One SDK object and one disconnect listener for the page's life, however often connect() runs.
+  // shortcut: the event name comes from the SDK's own types and has not been seen with the real OKX App; check it there.
+  const load = (): Promise<Ui> =>
+    (loading ??= loadUi().then(
+      (u) => {
+        u.on("okx-connect-ui-disconnection", () => announceDisconnect());
+        return u;
+      },
+      (e: unknown) => {
+        loading = undefined;
+        throw e;
+      },
+    ));
 
   return createConnector<EIP1193Provider>((config) => {
+    announceDisconnect = () => config.emitter.emit("disconnect");
     const provider = (): EIP1193Provider => ({
       request: (async ({ method, params }: { method: string; params?: unknown }) => {
         const u = await load();
         const chain = config.chains[0]!;
-        if (method === "eth_accounts" || method === "eth_requestAccounts") return accountsOf(u, chain.id);
+        if (method === "eth_accounts" || method === "eth_requestAccounts") return accountsOf(u);
         if (method === "eth_chainId") return `0x${chain.id.toString(16)}`;
         if (!WALLET_METHODS.has(method)) throw Object.assign(new Error(`OKX Connect does not handle ${method} here`), { code: 4200 });
         return u.request({ method, params: params as never }, caip(chain.id));
@@ -75,19 +90,21 @@ export function okxConnect() {
             throw new UserRejectedRequestError(e as Error);
           }
         }
-        const accounts = accountsOf(u, chain.id);
+        const accounts = accountsOf(u);
         if (!accounts.length) throw new UserRejectedRequestError(new Error("OKX Connect returned no account"));
         flag(true);
-        u.on("okx-connect-ui-disconnection", () => config.emitter.emit("disconnect"));
         return { accounts, chainId: chain.id } as never;
       },
       async disconnect() {
         flag(false);
-        if (ui?.connected()) await ui.disconnect();
+        if (loading) {
+          const u = await loading;
+          if (u.connected()) await u.disconnect();
+        }
       },
       async getAccounts() {
         const u = await load();
-        return u.connected() ? accountsOf(u, config.chains[0]!.id) : [];
+        return u.connected() ? accountsOf(u) : [];
       },
       async getChainId() {
         return config.chains[0]!.id;
@@ -99,7 +116,7 @@ export function okxConnect() {
         if (!flag()) return false;
         try {
           const u = await load();
-          return u.connected() && accountsOf(u, config.chains[0]!.id).length > 0;
+          return u.connected() && accountsOf(u).length > 0;
         } catch {
           return false;
         }
