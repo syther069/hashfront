@@ -15,7 +15,8 @@ Hashfront protects DeFi frontends from domain hijacks:
 | `packages/cli/` | `hashfront` CLI | TypeScript, viem, ox |
 | `packages/watcher/` | `hashfront-watch`: compares the normal host with the live release; DNS, cert, Certificate Transparency (`ct.ts`), registry (`registry.ts`: RDAP, DNSSEC) and OnchainOS signals in `src/signals/`; attacker-address triage in `suspects.ts` and `triage.ts`; Telegram and TapeSend alerts in `src/alerts/`; log analysis in `metrics.ts` | TypeScript, viem, reuses `@hashfront/cli` modules |
 | `apps/demo-dapp/` | HashSwap demo protocol frontend | TypeScript, Vite, viem (no framework) |
-| `apps/web/` | status page, maintainer approve page, embeddable badge (`badge.html`); Vercel Functions in `api/` (`_handlers.ts`, `_site.ts`) | React, Vite, wagmi, viem |
+| `apps/web/` | status page (`Status.tsx`; what it may claim is the pure `statusModel.ts`), maintainer approve page, embeddable badge (`badge.html`); wallet: `wallet.ts`, `WalletMenu.tsx`, `okxConnect.ts` (OKX Connect as a wagmi connector); Vercel Functions source in `api/` (`_handlers.ts`, `_site.ts`) | React, Vite, wagmi, viem |
+| `api/` (repo root) | four one-line re-exports of the functions that `npm run build -w apps/web` writes to `apps/web/dist/api`. Vercel looks for `api/` before the build runs, so these files must be in git. A new function in `apps/web/api` needs its stub here | JavaScript |
 | `apps/guard/` | Hashfront Guard browser extension (Manifest V3, no build step) | plain JavaScript |
 
 ## Commands
@@ -39,6 +40,7 @@ npm run test:e2e -w packages/watcher          # watcher on a fork: MATCH/MISMATC
 npm test -w apps/guard && npm run test:e2e -w apps/guard  # Guard: unit tests; the real extension loaded in Edge against local good and hijack builds
 npm run test:e2e -w packages/watcher  # includes guardian.e2e.ts: DemoVault paused once per incident on a fork; the guardian flags are refused on mainnet
 pwsh scripts/deploy-status.ps1 -NoDeploy  # build the status page with the gate baked in and check it (drop -NoDeploy to deploy)
+node scripts/vercel-build.mjs                  # what Vercel runs on every push to main (gate baked in, static site to public/)
 npm run pack:guard                            # dist/hashfront-guard.zip (what the GitHub Release carries)
 node scripts/metrics-report.ts --log .watcher/watch.jsonl --out docs/metrics.md [--drill <from>,<to>]  # watcher log (run-watcher.ps1 -Log) to measured metrics
 node packages/watcher/src/main.ts --telegram-test --telegram-chat=<id>  # needs TELEGRAM_BOT_TOKEN in the env

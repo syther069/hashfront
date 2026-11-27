@@ -395,10 +395,13 @@ Restructure the top of `README.md` in this order (keep the existing sections bel
 | A1 CT monitor | done, on main; fixtures and `example.org` only (no own domain) | |
 | A3 vantage probe | **CUT** | |
 | A2 DNSSEC + RDAP | done, on main; fixtures and `example.org` only | |
-| D1 metrics | code done, on main; **the 24 h run on the PC is still to do** (needs the user's OKX keys, reporter password and the PC on) | |
-| E2 live proof | prepared: `docs/RUNBOOK-hijack-e2.md`, hijack build staged locally; **needs the user's "go", keys and the reporter password** | |
-| Audit (ponytail) Nov 26 | must and should fixes 1-12 done on `fix/audit-must-should`; nice-to-have 13-17 not done | `fix/audit-must-should` |
-| UI/UX redesign | done on a branch: one dark design system, status banner with one primary action, Guard overlay restyled, logo and favicon; tests measure contrast and reflow; not on main or live yet | `feat/ui-redesign` |
+| D1 metrics | code done, on main. **8 h run in progress** (a continuous stretch started 2026-11-27 07:02 UTC, due 15:02 UTC; an earlier 4.5 h stretch ended 17:06 UTC on Nov 26). The report comes after it, with the live drill window `--drill 2026-11-27T07:04:00Z,2026-11-27T07:08:00Z` | |
+| E2 live proof | **done Nov 27** on the demo site (hosting compromise, no own domain): MISMATCH 07:04:31, alert 07:05:01 (44 s after the hijack went live) with Telegram and TapeSend through the OKX Gateway, restore 07:05:44, all clear 07:07:01. Evidence in `docs/evidence-okx-gateway-alert.md`; the 200 s screen recording is local only. **Not captured:** the Guard overlay, and an OKX orderId (the alert carries a TapeSend tx hash) | `docs/e2-live-hijack-evidence` |
+| Audit (ponytail) Nov 26 | must and should fixes 1-12 done and on main; nice-to-have 13-17 not done | |
+| UI/UX redesign | **done, on main and live:** one dark design system, Space Grotesk, Iconoir, header wallet with disconnect | |
+| Status page redesign | **done, on main and live (Nov 27):** one headline from chain data and the status server's site check (`statusModel.ts`, 13 tests, green only when everything is fresh and agrees), evidence blocks, visitors before maintainers, folds, tooltips | |
+| OKX Connect wallet | **on main and live:** `@okxconnect/ui` 1.9.1 as a wagmi connector (QR code / OKX App), loaded on click; OKX Wallet extension detected with `window.okxwallet`. **Not tested with the real OKX App**; no `wallet_sendCalls`, so batch revoke needs a browser wallet | |
+| Vercel from GitHub | **on main (Nov 27):** `hashfront-status` deploys from `main`: `vercel.json` + `scripts/vercel-build.mjs`; the bundled `api/` is committed | |
 | E3 quality pass | fresh clone on Nov 26: `npm ci` 24 s, typecheck 27 s, unit tests 12 s, 65 s in all, all green; functions checked (no secrets in the web bundle, inputs validated); full gate and submission still to do | |
 | CHANGELOG | written | `docs/e2-runbook-changelog` |
 | C2 guardian | done, fork only (DemoVault + `--guardian-call`; refused on mainnet; not deployed anywhere) | `feat/c2-guardian` |
