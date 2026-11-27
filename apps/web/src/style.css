@@ -871,3 +871,6 @@ th.num {
 .row > button {
   padding: 0 var(--s3);
 }
+.wallet-list .wallet-hint {
+  padding: var(--s1) var(--s2);
+}
