@@ -268,6 +268,10 @@ test("without /api (DeWEB copy, plain static host) the OKX panels stay hidden", 
   await page.waitForTimeout(1500);
   assert.equal(await page.getByTestId("affected").count(), 0);
   assert.equal(await page.getByTestId("okb-price").count(), 0);
+  // a host with no status server cannot be asked again: no retry button, and the page says why there is no website check
+  const hero = page.getByTestId("alert-state");
+  assert.equal(await hero.getByRole("button", { name: /try again/i }).count(), 0);
+  assert.match(await page.getByTestId("live-check").innerText(), /no status server/);
   await page.close();
 });
 
