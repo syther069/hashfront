@@ -214,7 +214,7 @@
 |---|---|---|---|
 | F1 | README matches evidence | Claude | done (PR `docs/f1-readme-truth`); found the E2 alert went via RPC, not the Gateway |
 | F2 | Reporter top-up | user | todo |
-| F3 | Hygiene, merge author name | Claude + user | todo |
+| F3 | Hygiene, merge author name | Claude + user | scratch file removed (PR `chore/f3-hygiene`); merge-author name: user to choose |
 | F4 | Guard DOM check (anti-cloaking) | Claude | todo |
 | F5 | Alert can't lock out users | Claude | todo |
 | F6 | CT key or honest wording | Claude + user | todo |
