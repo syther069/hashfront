@@ -14,17 +14,24 @@
    * @param status the /api/status feed (or null when it could not be read)
    * @param origin location.origin of the page
    * @param localRootHash sha256 of the index.html this browser just fetched (or null when that failed)
-   * @returns {{block: boolean, reason: string}} reason is "alert" | "hash" | "ok" | "unknown" | "other-site"
+   * @returns {{block: boolean, reason: string}} reason is "alert" | "hash" | "warn" | "ok" | "unknown" | "other-site".
+   *   "warn" never blocks: an onchain alert is open but the server sees the approved release, so the page shows a
+   *   banner only. A stale or false alert (a stolen reporter key) can warn users, never lock them out of the real site.
    */
   function decide(status, origin, localRootHash) {
     if (!status || typeof status !== "object" || typeof status.site !== "string") return { block: false, reason: "unknown" };
     if (status.site !== origin) return { block: false, reason: "other-site" };
     if (status.status === "alert") return { block: true, reason: "alert" };
-    // Our own hash check only counts when the server saw a clean match: while the host is merely behind a release
-    // or behind a CDN, the two legitimately differ and blocking would be a false alarm.
-    if (status.status === "ok" && typeof status.rootHash === "string" && status.rootHash && localRootHash && localRootHash !== status.rootHash.toLowerCase()) {
+    // Our own hash check only counts when the server saw a clean match (ok, or warn: an alert is open but the site
+    // matches). While the host is merely behind a release or a CDN, the two legitimately differ and blocking would
+    // be a false alarm.
+    const matched = status.status === "ok" || status.status === "warn";
+    if (matched && typeof status.rootHash === "string" && status.rootHash && localRootHash && localRootHash !== status.rootHash.toLowerCase()) {
       return { block: true, reason: "hash" };
     }
+    // An open onchain alert always shows the banner, also when the server could not verify the site (unknown): a
+    // hijacker who makes the status server's fetch fail must not get a quiet Guard.
+    if (status.status === "warn" || status.alertOpen === true) return { block: false, reason: "warn" };
     return { block: false, reason: status.status === "ok" ? "ok" : "unknown" };
   }
 

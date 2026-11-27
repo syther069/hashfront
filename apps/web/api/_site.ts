@@ -78,8 +78,16 @@ export async function loadSuspects(d: SiteDeps, now: () => Date = () => new Date
 
 export interface StatusReport {
   site: string;
-  /** alert: an onchain alert is open or the host serves a mismatch; unknown: nothing safe can be said (host behind, CDN) */
-  status: "ok" | "alert" | "unknown";
+  /**
+   * alert: the status server sees the host serving a mismatch right now (the only state a client should block on);
+   * warn: an onchain alert is open but the host currently serves the approved release;
+   * unknown: nothing safe can be said (host behind, CDN, unreachable)
+   */
+  status: "ok" | "warn" | "alert" | "unknown";
+  /** an onchain alert (website mismatch or domain records changed) is open, whatever the site serves now */
+  alertOpen: boolean;
+  /** when that open alert was reported (chain time, ISO), or null when none is open */
+  alertAt: string | null;
   liveRelease: number;
   /** approved sha256 of index.html, so a client can check the page it received on its own */
   rootHash: string;
@@ -91,16 +99,37 @@ export interface StatusReport {
 /** The feed the Guard extension (and any wallet that wants it) reads. */
 export async function loadStatus(d: SiteDeps, now: () => Date = () => new Date()): Promise<StatusReport> {
   const r = await readSite(d);
-  const [kind] = await r.ctx.publicClient.readContract({ address: d.gate, abi: releaseGateAbi, functionName: "lastAlert" });
+  const [kind, at] = await r.ctx.publicClient.readContract({ address: d.gate, abi: releaseGateAbi, functionName: "lastAlert" });
   const alertOpen = kind === 1 || kind === 2;
   const v = r.verdict.status;
-  const status = alertOpen || v === "MISMATCH" ? "alert" : v === "MATCH" ? "ok" : "unknown";
+  const status = siteStatusOf(v, alertOpen);
   const suspects =
     v === "MISMATCH"
       ? await findSuspects({ ctx: r.ctx, info: r.info, live: r.live, served: r.served, diffs: r.verdict.diffs, site: d.site, ...(d.fetchImpl ? { fetch: { fetchImpl: d.fetchImpl } } : {}) }).catch(() => [])
       : [];
   const assets = Object.fromEntries(r.live.files.map((f) => [f.path, f.sha256]));
-  return { site: d.site.origin, status, liveRelease: Number(r.live.id), rootHash: assets["index.html"] ?? "", assets, suspects, checkedAt: now().toISOString() };
+  return {
+    site: d.site.origin,
+    status,
+    alertOpen,
+    alertAt: alertOpen ? new Date(Number(at) * 1000).toISOString() : null,
+    liveRelease: Number(r.live.id),
+    rootHash: assets["index.html"] ?? "",
+    assets,
+    suspects,
+    checkedAt: now().toISOString(),
+  };
+}
+
+/**
+ * The feed's status from what the host serves now and whether an onchain alert is open. Only a mismatch seen right
+ * now is "alert": an open alert on a site that matches is "warn", so a stale alert (a watcher stopped before its
+ * all-clear) or a false one (a stolen reporter key) can warn users but never lock them out of the real site.
+ */
+export function siteStatusOf(verdict: Verdict["status"], alertOpen: boolean): StatusReport["status"] {
+  if (verdict === "MISMATCH") return "alert";
+  if (verdict === "MATCH") return alertOpen ? "warn" : "ok";
+  return "unknown";
 }
 
 /** Builds a cached loader from env, or undefined when the site is not configured. */

@@ -22,11 +22,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!msg || msg.type !== "status") return false;
   readStatus().then((status) => {
     sendResponse({ status, config: self.HF_CONFIG });
-    const alert = status && status.status === "alert";
+    const s = status && (status.status !== "alert" && status.alertOpen === true ? "warn" : status.status);
     const tabId = sender.tab && sender.tab.id;
     if (tabId !== undefined) {
-      chrome.action.setBadgeText({ tabId, text: status ? (alert ? "ALERT" : "OK") : "" });
-      chrome.action.setBadgeBackgroundColor({ tabId, color: alert ? "#c62828" : "#2e7d32" });
+      chrome.action.setBadgeText({ tabId, text: status ? (s === "alert" ? "ALERT" : s === "warn" ? "WARN" : s === "ok" ? "OK" : "?") : "" });
+      chrome.action.setBadgeBackgroundColor({ tabId, color: s === "alert" ? "#c62828" : s === "warn" ? "#b26a00" : "#2e7d32" });
     }
   });
   return true; // async response

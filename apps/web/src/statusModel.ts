@@ -3,7 +3,7 @@
 // present, fresh and agrees" lives in one tested place and not scattered through components.
 
 export type Tone = "bad" | "warn" | "neutral" | "good";
-export type StatusKind = "loading" | "unreadable" | "migrated" | "no-release" | "alert" | "site-differs" | "cannot-confirm" | "no-site-check" | "matches";
+export type StatusKind = "loading" | "unreadable" | "migrated" | "no-release" | "alert" | "alert-site-matches" | "site-differs" | "cannot-confirm" | "no-site-check" | "matches";
 export type Action = "verified-copy" | "check-approvals" | "retry" | "none";
 
 /** How old chain data and a site check may be before the page stops treating them as current. Product choices, not guarantees. */
@@ -22,7 +22,8 @@ export interface ChainFacts {
 }
 
 export interface SiteFacts {
-  status: "ok" | "alert" | "unknown";
+  /** warn: an onchain alert is open but the status server sees the approved release served */
+  status: "ok" | "warn" | "alert" | "unknown";
   liveRelease: number;
   /** when the status server did the check (its own clock, from the response) */
   checkedAtMs: number;
@@ -91,6 +92,22 @@ export function statusOf(i: StatusInputs): StatusView {
   }
   if (c.alertKind === 1 || c.alertKind === 2) {
     const when = c.alertAgeS === undefined ? "" : ` Reported ${ageText(c.alertAgeS)} ago while v${c.alertRelease} was live.`;
+    // The status server says, freshly and for the same release, that the open alert's site serves the approved files:
+    // an amber state, not red. A stale alert or a false one (a stolen reporter key) must not read as a live hijack.
+    const w = i.site.facts;
+    if (!i.site.pending && !i.site.failed && w?.status === "warn" && Number.isFinite(w.checkedAtMs) && i.nowMs - w.checkedAtMs <= SITE_STALE_MS && w.liveRelease === Number(c.liveRelease)) {
+      return {
+        ...base,
+        notices,
+        kind: "alert-site-matches",
+        tone: "warn",
+        headline: "Alert open, site currently matches",
+        detail: `An onchain alert (${c.alertKind === 1 ? "website mismatch" : "domain records changed"}) has not been closed, but the status server saw the approved release v${w.liveRelease} served at ${utc(w.checkedAtMs)}. Check with the team before signing; the verified copy is always safe.${when}`,
+        reasons: chainNote ? [chainNote] : [],
+        primary: verified,
+        secondary: i.hasVerifiedCopy ? "check-approvals" : "none",
+      };
+    }
     const siteOk = i.site.facts?.status === "ok" ? " The status server's own check currently sees a matching site, but the alert has not been closed onchain." : "";
     return {
       ...base,

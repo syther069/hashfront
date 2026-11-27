@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { encodeFunctionData, parseAbi } from "viem";
 import { OkxClient } from "@hashfront/okx/client";
 import { getApprovals, getPrice, getStatus, postTxScan, type Deps } from "../api/_handlers.ts";
-import { suspectsLoaderFromEnv } from "../api/_site.ts";
+import { siteStatusOf, suspectsLoaderFromEnv } from "../api/_site.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const fixture = async (name: string) => JSON.parse(await readFile(path.join(here, "../../../packages/okx/test/fixtures", `${name}.json`), "utf8")) as unknown;
@@ -90,6 +90,15 @@ test("approvals: a failing suspects lookup never hides the approvals", async () 
   assert.ok((await res.json()).approvals.length > 0);
 });
 
+test("status feed: only a mismatch seen now is 'alert'; an open alert on a matching site is 'warn', never a lockout", () => {
+  assert.equal(siteStatusOf("MATCH", true), "warn");
+  assert.equal(siteStatusOf("MISMATCH", true), "alert");
+  assert.equal(siteStatusOf("MISMATCH", false), "alert");
+  assert.equal(siteStatusOf("MATCH", false), "ok");
+  assert.equal(siteStatusOf("HOST_BEHIND", true), "unknown");
+  assert.equal(siteStatusOf("UNREACHABLE", false), "unknown");
+});
+
 test("suspects loader: only an https site and a real gate address from env are accepted", () => {
   const ok = { HASHFRONT_SITE: "https://hashswap-demo.vercel.app/", HASHFRONT_GATE: GATE };
   assert.equal(typeof suspectsLoaderFromEnv(ok, []), "function");
@@ -100,7 +109,7 @@ test("suspects loader: only an https site and a real gate address from env are a
 });
 
 test("status: public JSON feed with CORS and a 20 s cache; generic 503 when unconfigured or failing", async () => {
-  const report = { site: "https://hashswap-demo.vercel.app", status: "ok" as const, liveRelease: 2, rootHash: "0xabc", assets: { "index.html": "0xabc" }, suspects: [], checkedAt: "2026-11-26T00:00:00.000Z" };
+  const report = { site: "https://hashswap-demo.vercel.app", status: "ok" as const, alertOpen: false, alertAt: null, liveRelease: 2, rootHash: "0xabc", assets: { "index.html": "0xabc" }, suspects: [], checkedAt: "2026-11-26T00:00:00.000Z" };
   const ok = await getStatus(new Request("https://s/api/status"), async () => report);
   assert.equal(ok.status, 200);
   assert.equal(ok.headers.get("access-control-allow-origin"), "*");

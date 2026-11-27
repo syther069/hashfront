@@ -31,7 +31,9 @@ const sha = (b) => `0x${createHash("sha256").update(b).digest("hex")}`;
 async function statusBody() {
   const root = goodRoot;
   const common = { site: base.replace(/\/$/, ""), liveRelease: 2, rootHash: root, assets: {}, suspects: ["0xBAd0000000000000000000000000000000000Bad"], checkedAt: new Date().toISOString() };
-  return feed.mode === "alert" ? { ...common, status: "alert" } : { ...common, status: "ok", suspects: [] };
+  if (feed.mode === "alert") return { ...common, status: "alert", alertOpen: true };
+  if (feed.mode === "warn") return { ...common, status: "warn", alertOpen: true, suspects: [] };
+  return { ...common, status: "ok", alertOpen: false, suspects: [] };
 }
 
 before(async () => {
@@ -111,6 +113,27 @@ test("good build, clean feed: no overlay and the wallet is reached", async () =>
   const page = await open();
   assert.equal(await page.locator("hashfront-guard").count(), 0);
   assert.equal(await sign(page), "sent");
+  await page.close();
+});
+
+test("open alert on a site that matches (warn): a banner, no overlay, and the signature reaches the wallet", async () => {
+  serving = "dist";
+  feed = { mode: "warn" };
+  const page = await open();
+  assert.equal(await page.locator("hashfront-guard").count(), 0);
+  assert.equal(await page.locator("hashfront-guard-banner").count(), 1);
+  assert.equal(await sign(page), "sent");
+  assert.ok((await page.evaluate(() => window.__calls)).includes("eth_sendTransaction"));
+  if (process.env.GUARD_SHOTS) await page.screenshot({ path: path.join(process.env.GUARD_SHOTS, "guard-warn-banner.png") });
+  await page.close();
+});
+
+test("warn does not switch off the independent hash check: a different page is still blocked", async () => {
+  serving = "dist-hijack";
+  feed = { mode: "warn" };
+  const page = await open();
+  assert.equal(await page.locator("hashfront-guard").count(), 1);
+  assert.equal(await sign(page), "rejected:4001");
   await page.close();
 });
 

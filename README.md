@@ -208,14 +208,14 @@ hashfront init --site https://app.example.org --maintainers 0xM1,0xM2,0xM3 \
 | Suite | Count | Covers |
 |---|---|---|
 | `forge test` | 57 (50 without the fork tests) | gate lifecycle, policy, fuzzing, manifest compatibility with the CLI, alerts, plus X Layer fork tests (contract holder on the real SiteRegistry, real TapeSend hub) |
-| unit (`npm test`) | 227 | circuit truth table, Merkle and manifest, preflight, keystore, init input, template guards; watcher compare, CDN and adversarial cases, DNS, certificate, CT, registry and scan signals, suspects, incident state machine, metrics report; OKX client and latency ring; web handlers and revoke logic; Guard request filter and verdict logic |
-| end-to-end | CLI suites, watcher 9, web 15, Guard 7 (web and Guard also run in CI) | CLI on anvil and on a fork (`init`, Action sequence, demo release), watcher MATCH→MISMATCH, one alert per incident and the attacker address from a hijack build, Playwright on the status, approve and badge pages including suspects and revoke-all against a real anvil allowance, and the real extension loaded in Edge against the good and hijack builds |
+| unit (`npm test`) | 232 | circuit truth table, Merkle and manifest, preflight, keystore, init input, template guards; watcher compare, CDN and adversarial cases, DNS, certificate, CT, registry and scan signals, suspects, incident state machine, metrics report; OKX client and latency ring; web handlers and revoke logic; Guard request filter and verdict logic |
+| end-to-end | CLI suites, watcher 9, web 15, Guard 9 (web and Guard also run in CI) | CLI on anvil and on a fork (`init`, Action sequence, demo release), watcher MATCH→MISMATCH, one alert per incident and the attacker address from a hijack build, Playwright on the status, approve and badge pages including suspects and revoke-all against a real anvil allowance, and the real extension loaded in Edge against the good and hijack builds |
 
 ## Security model and limits
 
 - **What a stolen key can do:**
   - **Uploader (CI):** it can only stage bytes the maintainers approved.
-  - **Reporter (watcher):** it can raise a false alarm or a false all-clear, never send users anywhere.
+  - **Reporter (watcher):** it can raise a false alarm or a false all-clear, never send users anywhere. A stolen reporter key can raise a warning banner, never block signing on a matching site: the Guard blocks only when the status server sees a mismatch now, or its own check of the page fails.
   - **One maintainer:** it can freeze or cancel, but not ship a release alone.
 - **Rotation:** two maintainers can replace the third, the uploader or the reporter. All three can migrate the site to a new gate.
 - **What the watcher can't do:** it sees one vantage point and needs the release manifests. "No open alert" means no alert was reported; it is not a live check, and a stopped watcher looks the same. A Cloudflare-modified page is reported as `CDN_MODIFIED` to the team and never shown as safe.
