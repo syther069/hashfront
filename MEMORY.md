@@ -162,3 +162,14 @@ Durable facts and decisions for Hashfront. Update this file whenever something i
 - **X Layer testnet (1952):** has no TapeOut opener, SiteRegistry or TapeFun deployed (checked Nov 19), so fork mainnet instead.
 - **Foundry 1.7.1:** `forge-std` is vendored in `contracts/lib/forge-std`, without git metadata.
 - Nov 25: hashfront-status has Vercel env `HASHFRONT_SITE=https://hashswap-demo.vercel.app/` (non-secret, production). `/api/suspects` returns match/[] on the live v2 site. The deploy dir `deploy/hashfront-status` is a copy of `apps/web/dist` built with `VITE_GATE=0xAF96...80F6 VITE_NETWORK=xlayer`.
+
+## Nov 27: Vercel, OKX Connect, the live drill
+
+- **Vercel from GitHub:** project `hashfront-status` is connected to `syther069/hashfront`. A push to `main` builds production with `vercel.json` (`npm ci`, `node scripts/vercel-build.mjs`, output `public/`). Preview deployments (any other branch) have **no OKX env vars**, so their `/api/*` answer "not configured" or "OKX API unavailable"; that is expected, not a bug.
+- **`api/` is committed on purpose:** Vercel found no functions in a preview when `api/` was only created by the build. The build rewrites the same bytes.
+- **`vercel curl` creates a Protection Bypass for Automation secret** on the project (it stays until revoked in Deployment Protection settings). Its output is easier to read with `MSYS_NO_PATHCONV=1` in Git Bash.
+- **OKX docs:** the `web3.okx.com/build/docs/sdks/app-connect-evm-*` URLs return 404; the package READMEs (jsDelivr) have the API. Wallet detection is documented as `typeof window.okxwallet !== 'undefined'`; the site icon is read from `<link rel="shortcut icon">`.
+- **OKX Connect:** `@okxconnect/ui` 1.9.1 (Apache-2.0), about 1 MB lazy chunk; `OKXUniversalConnectUI.init({ dappMetaData, ... })`, `openModal`, `request(args, "eip155:196")`, event `okx-connect-ui-disconnection`. Not tested with the real OKX App.
+- **Live drill (demo site):** hijack live 07:04:17 UTC, MISMATCH 07:04:31, alert 07:05:01 (Telegram ok; TapeSend tx `0xba9c1079…2bc6a`), restore 07:05:44, all clear 07:07:01 (tx `0xf27133a0…d668c`).
+- **Watcher signals:** the Certificate Transparency sources answered CertSpotter HTTP 403 and crt.sh HTTP 404, so the CT signal is `info` (unavailable) on most checks; it is not an alert.
+- **Watcher run:** a continuous stretch began 2026-11-27 07:02 UTC. Earlier stretch: 2026-11-26 12:35 to 17:06 UTC, then a 13 h 55 min gap (watcher stopped).

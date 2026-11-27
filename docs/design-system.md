@@ -6,7 +6,7 @@ One dark theme, built for one job: tell a visitor, in the first second, whether 
 
 | Who | Their question | What the page puts first |
 |---|---|---|
-| A user | "Is this site safe to use right now?" | The status banner: no open alert, or the alert, with one primary action (open the verified copy; if there is none, check my approvals) |
+| A user | "Is this site safe to use right now?" | The status banner: what was checked and when, or the open alert, with one primary action (open the verified copy; if there is none, check my approvals) |
 | A user after a hijack | "Did I sign something? How do I undo it?" | The suspects card, then "Am I affected?" with the attacker's approval ranked first and one Revoke button per row (or "Revoke all risky") |
 | A maintainer | "What exactly am I about to approve?" | The approve page: the onchain root, the manifest check, then the approve button with the reasons it is disabled |
 | A judge | "Is this real, and is it honest?" | Live values read from chain, labelled limits (it is not a live check; the watcher may be stopped) |
@@ -24,12 +24,18 @@ The policy table, the releases table and the badge are for maintainers and judge
 - **Loading:** the bouncing dots from loading.dev, always with words saying what is loading; they rest under `prefers-reduced-motion`.
 - **Brand:** `docs/brand/` (the mark and the wordmark); the favicon is the mark.
 
+## Status page: how it reads
+
+- The headline comes from one pure, tested function (`statusModel.ts`): green only when the chain data is fresh, the status server's site check is fresh and says ok, both agree on the release, the gate is not migrated and no alert is open. Otherwise it says why it is not green.
+- Order: the headline and one action, then three evidence blocks (live release, latest alert, website check), then "What to do now" for visitors, then release management for maintainers, then folds for technical details and metrics.
+- Technical terms carry a small "i" with a plain-language meaning (hover, keyboard focus or tap).
+
 ## Rules the code follows
 
 - Every control is at least 44 px tall; focus is a visible 2 px ring; a "Skip to content" link comes first.
 - Every failure says what failed and offers a next action (Try again); every wait names what it waits for.
 - Narrow screens: the approvals and releases tables become one block per row, with labels; nothing scrolls sideways from 320 px up.
-- A truth rule from the UX guide: the page says what it knows. The banner states that it is not a live check, and the Guard note says a batch revoke may ask the wallet for an EIP-7702 upgrade.
+- A truth rule from the UX guide: the page says what it knows. The banner says what it checked and when (and why it is not green), and the Guard note says a batch revoke may ask the wallet for an EIP-7702 upgrade.
 
 ## How it is checked
 
