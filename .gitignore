@@ -15,3 +15,5 @@ hashfront.json
 .watcher/
 apps/*/dist-v*/
 /dist/
+/public/
+/api/
