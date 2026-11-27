@@ -166,7 +166,7 @@ Durable facts and decisions for Hashfront. Update this file whenever something i
 ## Nov 27: Vercel, OKX Connect, the live drill
 
 - **Vercel from GitHub:** project `hashfront-status` is connected to `syther069/hashfront`. A push to `main` builds production with `vercel.json` (`npm ci`, `node scripts/vercel-build.mjs`, output `public/`). Preview deployments (any other branch) have **no OKX env vars**, so their `/api/*` answer "not configured" or "OKX API unavailable"; that is expected, not a bug.
-- **`api/` is committed on purpose:** Vercel found no functions in a preview when `api/` was only created by the build. The build rewrites the same bytes.
+- **Root `api/` holds one-line re-exports on purpose:** Vercel found no functions in a preview when `api/` was only created by the build, so `api/<name>.js` re-exports `apps/web/dist/api/<name>.js` (built during the Vercel build). Checked on a preview: 4 functions found, each answered with the app's own JSON.
 - **`vercel curl` creates a Protection Bypass for Automation secret** on the project (it stays until revoked in Deployment Protection settings). Its output is easier to read with `MSYS_NO_PATHCONV=1` in Git Bash.
 - **OKX docs:** the `web3.okx.com/build/docs/sdks/app-connect-evm-*` URLs return 404; the package READMEs (jsDelivr) have the API. Wallet detection is documented as `typeof window.okxwallet !== 'undefined'`; the site icon is read from `<link rel="shortcut icon">`.
 - **OKX Connect:** `@okxconnect/ui` 1.9.1 (Apache-2.0), about 1 MB lazy chunk; `OKXUniversalConnectUI.init({ dappMetaData, ... })`, `openModal`, `request(args, "eip155:196")`, event `okx-connect-ui-disconnection`. Not tested with the real OKX App.
