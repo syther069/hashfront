@@ -1,12 +1,2 @@
-import { n as getApprovals, t as depsFromEnv } from "./__handlers-BWNGU2uu.js";
-import { n as suspectsLoaderFromEnv, r as manifestTexts } from "./__site-SFRMacWE.js";
-// api/approvals.ts
-var base = depsFromEnv();
-var deps = {
-	...base,
-	suspects: suspectsLoaderFromEnv(base.env, manifestTexts)
-};
-function GET(req) {
-	return getApprovals(req, deps);
-}
-export { GET };
+// Vercel finds this file before the build runs; the code is the bundle that `npm run build -w apps/web` writes to apps/web/dist/api.
+export { GET } from "../apps/web/dist/api/approvals.js";
