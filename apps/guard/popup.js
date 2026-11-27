@@ -6,8 +6,11 @@ chrome.runtime.sendMessage({ type: "status" }).then((reply) => {
   } else if (status.status === "alert") {
     state.textContent = "ALERT: " + status.site + " does not match its approved release.";
     state.className = "alert";
-  } else if (status.status === "warn") {
-    state.textContent = "WARNING: an alert is open for " + status.site + ", but it currently matches release v" + status.liveRelease + ". Nothing is blocked; check the status page.";
+  } else if (status.status === "warn" || status.alertOpen === true) {
+    state.textContent =
+      status.status === "warn"
+        ? "WARNING: an alert is open for " + status.site + ", but it currently matches release v" + status.liveRelease + ". Nothing is blocked; check the status page."
+        : "WARNING: an alert is open for " + status.site + " and the site could not be verified right now. Check the status page before signing.";
     state.className = "warn";
   } else if (status.status === "ok") {
     state.textContent = "OK: " + status.site + " matches release v" + status.liveRelease + ".";

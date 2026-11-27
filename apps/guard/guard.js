@@ -40,13 +40,13 @@
   }
 
   const decision = G.decide(status, location.origin, local);
-  if (decision.reason === "warn") showBanner(config);
+  if (decision.reason === "warn") showBanner(config, status.status === "warn");
   if (!decision.block) return allow();
   tell({ block: true });
   showOverlay(decision.reason, G.safeSuspects(status), config, allow);
 
   // A small bar at the top for an open alert on a page that matches its approved release. Signing is not blocked.
-  function showBanner(cfg) {
+  function showBanner(cfg, matches) {
     const host = document.createElement("hashfront-guard-banner");
     const root = host.attachShadow({ mode: "closed" });
     const style = document.createElement("style");
@@ -61,7 +61,9 @@
     bar.setAttribute("role", "status");
     bar.dataset.hfBanner = "warn";
     const p = document.createElement("p");
-    p.textContent = "An alert is open for this site; the page currently matches its approved release. Check the status page. ";
+    p.textContent = matches
+      ? "An alert is open for this site; the page currently matches its approved release. Check the status page. "
+      : "An alert is open for this site, and it could not be verified right now. Check the status page before signing. ";
     if (typeof cfg.statusPageUrl === "string" && /^https:\/\//.test(cfg.statusPageUrl)) {
       const a = document.createElement("a");
       a.href = cfg.statusPageUrl;

@@ -22,7 +22,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!msg || msg.type !== "status") return false;
   readStatus().then((status) => {
     sendResponse({ status, config: self.HF_CONFIG });
-    const s = status && status.status;
+    const s = status && (status.status !== "alert" && status.alertOpen === true ? "warn" : status.status);
     const tabId = sender.tab && sender.tab.id;
     if (tabId !== undefined) {
       chrome.action.setBadgeText({ tabId, text: status ? (s === "alert" ? "ALERT" : s === "warn" ? "WARN" : s === "ok" ? "OK" : "?") : "" });

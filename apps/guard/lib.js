@@ -29,7 +29,9 @@
     if (matched && typeof status.rootHash === "string" && status.rootHash && localRootHash && localRootHash !== status.rootHash.toLowerCase()) {
       return { block: true, reason: "hash" };
     }
-    if (status.status === "warn") return { block: false, reason: "warn" };
+    // An open onchain alert always shows the banner, also when the server could not verify the site (unknown): a
+    // hijacker who makes the status server's fetch fail must not get a quiet Guard.
+    if (status.status === "warn" || status.alertOpen === true) return { block: false, reason: "warn" };
     return { block: false, reason: status.status === "ok" ? "ok" : "unknown" };
   }
 
