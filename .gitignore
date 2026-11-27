@@ -18,3 +18,4 @@ apps/*/dist-v*/
 /public/
 .claude/*
 !.claude/launch.json
+docs/evidence/*.mp4
