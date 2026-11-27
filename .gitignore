@@ -16,3 +16,4 @@ hashfront.json
 apps/*/dist-v*/
 /dist/
 /public/
+docs/evidence/*.mp4
