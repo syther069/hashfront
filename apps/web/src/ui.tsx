@@ -1,6 +1,6 @@
 // Small shared pieces: the brand mark, the loader and the error panel, so every page loads and fails the same way.
-import type { ReactNode } from "react";
-import { Refresh, WarningTriangle } from "./icons.tsx";
+import { useId, useState, type ReactNode } from "react";
+import { Check, Copy, InfoCircle, NavArrowDown, Refresh, WarningTriangle } from "./icons.tsx";
 
 /** The Hashfront mark (docs/brand/hashfront-mark.svg): a hash made of four bars, one node lit. Brand colours, not theme colours. */
 export function Logo() {
@@ -55,5 +55,67 @@ export function ErrorPanel({ title, detail, onRetry, children }: { title: string
         </div>
       )}
     </section>
+  );
+}
+
+/** A value that is easy to copy: the text, and a button that says "Copied" when it worked. */
+export function CopyField({ value, shown, label }: { value: string; shown?: string; label: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <span className="copyfield">
+      <code title={value}>{shown ?? value}</code>
+      <button
+        type="button"
+        className="icon-only"
+        aria-label={copied ? `${label} copied` : `Copy ${label}`}
+        title={copied ? "Copied" : `Copy ${label}`}
+        onClick={() => {
+          void navigator.clipboard?.writeText(value).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          }, () => undefined);
+        }}
+      >
+        {copied ? <Check size={18} /> : <Copy size={18} />}
+      </button>
+    </span>
+  );
+}
+
+const wide = () => typeof window !== "undefined" && window.matchMedia?.("(min-width: 768px)").matches === true;
+
+/**
+ * A disclosure built on <details>: keyboard and screen-reader behaviour for free. `openOnWide` opens it on screens with
+ * room (desktop) and leaves it closed on phones; the summary can carry a short hint or a count so a closed fold is not blind.
+ */
+export function Fold({ title, hint, badge, openOnWide, testId, children }: { title: string; hint?: string; badge?: string; openOnWide?: boolean; testId?: string; children: ReactNode }) {
+  const [open, setOpen] = useState(() => Boolean(openOnWide) && wide());
+  return (
+    <details className="fold" open={open} onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)} {...(testId ? { "data-testid": testId } : {})}>
+      <summary>
+        <span className="fold-title">
+          <strong>{title}</strong>
+          {badge && <span className="pill">{badge}</span>}
+        </span>
+        {hint && <span className="muted small fold-hint">{hint}</span>}
+        <NavArrowDown className="chev" />
+      </summary>
+      <div className="fold-body">{children}</div>
+    </details>
+  );
+}
+
+/** A small "?" next to a term: the plain-language meaning on hover, on keyboard focus, or on tap. The 44 px hit area has no layout cost. */
+export function Tip({ term, children }: { term: string; children: ReactNode }) {
+  const id = useId();
+  return (
+    <span className="tip">
+      <button type="button" className="tip-btn" aria-label={`What is ${term}?`} aria-describedby={id}>
+        <InfoCircle size={16} />
+      </button>
+      <span role="tooltip" id={id} className="tip-bubble">
+        {children}
+      </span>
+    </span>
   );
 }

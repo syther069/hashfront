@@ -30,16 +30,19 @@ export function useApprovals(address: string | undefined) {
   });
 }
 
-export interface SuspectsInfo {
-  status: "match" | "mismatch" | "other";
+/** The status server's own check of the protected website against the live release (GET /api/status). */
+export interface SiteStatus {
+  site: string;
+  status: "ok" | "alert" | "unknown";
   liveRelease: number;
+  rootHash: string;
   suspects: string[];
   checkedAt: string;
 }
 
-/** Addresses seen only in the hijacked site; polled only while an alert is open, and absent where /api is not deployed. */
-export function useSuspects(enabled: boolean) {
-  return useQuery({ queryKey: ["suspects"], queryFn: () => getJson<SuspectsInfo>("/api/suspects"), enabled, retry: false, refetchInterval: 30_000 });
+/** Polled every 20 s (the server caches for the same time). Absent on hosts without /api, which the page treats as "unavailable". */
+export function useSiteStatus() {
+  return useQuery({ queryKey: ["site-status"], queryFn: () => getJson<SiteStatus>("/api/status"), refetchInterval: 20_000, retry: false });
 }
 
 export interface ScanResult {
