@@ -4,7 +4,7 @@
 
 **When a DeFi frontend gets hijacked, Hashfront catches it in under a minute, warns users on Telegram and on chain, and keeps a copy of the approved app that the attacker cannot touch.**
 
-> **Success metric:** hijack to onchain alert in **under 60 s** (measured on mainnet: 51 s, see the [rehearsal](docs/evidence-hijack-rehearsal.md)) · false alarms: **0 per day** (not yet measured: the 24 h run is pending, see [`docs/metrics.md`](docs/metrics.md)) · detection still works **with OKX down**.
+> **Success metric:** hijack to onchain alert in **under 60 s** (measured on mainnet: 51 s in the [rehearsal](docs/evidence-hijack-rehearsal.md), 44 s in the [Nov 27 live run](docs/evidence-okx-gateway-alert.md)) · watching: **8 h, 960 checks, 100 % schedule uptime, one declared drill, 0 alerts outside it** ([`docs/metrics.md`](docs/metrics.md)); one run is too little to claim a false-alarm rate · detection still works **with OKX down**.
 >
 > The minute is for a **changed website**. Certificate and registry changes (new certificate, nameservers, DNSSEC) are polled about every 10 minutes, so those alerts can take that long; DNS changes are checked on every pass.
 
@@ -77,7 +77,7 @@ Users can't see the difference, and teams usually find out from their users.
 
 Hashfront closes four gaps:
 
-1. **Know:** a watcher compares every file the normal site serves with the release approved on chain. It also watches DNS, the TLS certificate, Certificate Transparency (a new certificate for the domain), the registry (nameservers, transfer locks, DNSSEC through RDAP and DoH) and the OnchainOS phishing scan, so a registrar hijack is caught even if the attacker shows the watcher the real page.
+1. **Know:** a watcher compares every file the normal site serves with the release approved on chain. It also watches DNS, the TLS certificate, the registry (nameservers, transfer locks, DNSSEC through RDAP and DoH) and the OnchainOS phishing scan. Certificate Transparency (a new certificate for the domain) is best effort: in our 8 h run the public CT APIs were unavailable in 72 % of checks ([`docs/metrics.md`](docs/metrics.md)).
 2. **Warn:** one alert per incident on Telegram and as an onchain TapeSend message. The text is fixed in the contract and has no links, so a stolen alert key can't send anyone to a phishing page. The status page and the embeddable badge turn red, and the team gets the **suspected attacker addresses**: addresses that appear in the served files and in none of the approved release's files (best-effort triage).
 3. **Stop the signature:** the [Hashfront Guard](apps/guard) browser extension reads the same status feed (`/api/status`) and blocks wallet signatures on the hijacked page, before the user signs. It only protects people who installed it; the feed is also what a wallet could read.
 4. **Recover:** during a hijack, users open the pinned verified link and get the exact approved bytes from chain (DeWEB). "Am I affected?" lists their X Layer approvals, ranks the attacker's address first, and **Revoke all risky** removes them in one wallet confirmation when the wallet supports EIP-5792, or one by one when it does not.
@@ -107,7 +107,7 @@ Hashfront uses OKX's APIs on X Layer for the parts where a hijack hurts most. De
 |---|---|---|
 | **Am I affected?** | Security: approvals | During an alert, users paste their address and see every X Layer token approval. The ones not to the protocol's contracts are flagged (plain wallet, unlisted, or flagged by OKX), with a one-click revoke |
 | **Approve with a second opinion** | Security: transaction scan | A maintainer sees OKX's pre-execution scan of the exact `approve` transaction before signing; a warning must be acknowledged |
-| **Alerts that get through** | Onchain Gateway: simulate, gas price, broadcast, orders | The alert path simulates with OKX, prices with the gateway, and broadcasts the same signed bytes through OKX and the RPC (so never a double alert). **Tested against a mock gateway on a fork and with live read-only calls; the first live mainnet alert through it is the E2 proof, not yet done** ([runbook](docs/RUNBOOK-hijack-e2.md)) |
+| **Alerts that get through** | Onchain Gateway: simulate, gas price, broadcast, orders | The alert path simulates with OKX, prices with the gateway, and broadcasts the same signed bytes through OKX and the RPC (so never a double alert). **Tested against a mock gateway on a fork and with live read-only calls.** The live mainnet hijack on Nov 27 sent its alert 44 s after the hijack went live (TapeSend tx [`0xba9c1079…`](https://www.oklink.com/xlayer/tx/0xba9c1079a9a0513a7a96eb4b49db8c2cdf41325d30962daa441a29211bf2bc6a)), but the watcher ran without OKX keys, so that alert went **over the plain RPC path, not the gateway** (no OKX order id). A live broadcast through the gateway is still to be proven ([evidence](docs/evidence-okx-gateway-alert.md), [runbook](docs/RUNBOOK-hijack-e2.md)) |
 | **Never out of gas** | Balance + Gateway gas price | The watcher warns the team before the reporter wallet can't pay for 3 alerts |
 | **Phishing signal anywhere** | Security: dapp-scan | The domain blacklist check runs over REST, so it also works in GitHub Actions |
 | **Costs in dollars** | Market: price | Fees on the status page, the approve page and `hashfront init` show OKB and USD |
@@ -131,7 +131,7 @@ flowchart LR
     DNS["DNS / TLS / OnchainOS dapp-scan"] --> Watcher
     CT["Certificate Transparency<br/>(CertSpotter, crt.sh)"] --> Watcher
     RDAP["Registry: RDAP + DNSSEC (DoH)"] --> Watcher
-    Watcher -->|"MISMATCH x2"| Alert["ReleaseGate.alert(): TapeSend + Telegram<br/>(OKX Gateway path, mock-tested; live proof pending)"]
+    Watcher -->|"MISMATCH x2"| Alert["ReleaseGate.alert(): TapeSend + Telegram<br/>(live on mainnet Nov 27 via RPC;<br/>OKX Gateway path fork-tested, live broadcast not yet proven)"]
     Watcher -->|"changed files"| Suspects["suspected attacker addresses"]
     Alert --> Status["status page + badge: ALERT"]
   end
@@ -208,8 +208,8 @@ hashfront init --site https://app.example.org --maintainers 0xM1,0xM2,0xM3 \
 | Suite | Count | Covers |
 |---|---|---|
 | `forge test` | 57 (50 without the fork tests) | gate lifecycle, policy, fuzzing, manifest compatibility with the CLI, alerts, plus X Layer fork tests (contract holder on the real SiteRegistry, real TapeSend hub) |
-| unit (`npm test`) | 197 | circuit truth table, Merkle and manifest, preflight, keystore, init input, template guards; watcher compare, CDN and adversarial cases, DNS, certificate, CT, registry and scan signals, suspects, incident state machine, metrics report; OKX client and latency ring; web handlers and revoke logic; Guard request filter and verdict logic |
-| end-to-end | CLI suites, watcher 9, web 12, Guard 7 (web and Guard also run in CI) | CLI on anvil and on a fork (`init`, Action sequence, demo release), watcher MATCH→MISMATCH, one alert per incident and the attacker address from a hijack build, Playwright on the status, approve and badge pages including suspects and revoke-all against a real anvil allowance, and the real extension loaded in Edge against the good and hijack builds |
+| unit (`npm test`) | 227 | circuit truth table, Merkle and manifest, preflight, keystore, init input, template guards; watcher compare, CDN and adversarial cases, DNS, certificate, CT, registry and scan signals, suspects, incident state machine, metrics report; OKX client and latency ring; web handlers and revoke logic; Guard request filter and verdict logic |
+| end-to-end | CLI suites, watcher 9, web 15, Guard 7 (web and Guard also run in CI) | CLI on anvil and on a fork (`init`, Action sequence, demo release), watcher MATCH→MISMATCH, one alert per incident and the attacker address from a hijack build, Playwright on the status, approve and badge pages including suspects and revoke-all against a real anvil allowance, and the real extension loaded in Edge against the good and hijack builds |
 
 ## Security model and limits
 
