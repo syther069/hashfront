@@ -1,4 +1,4 @@
-import { o as postTxScan, t as depsFromEnv } from "./__handlers-DV0s4ewm.js";
+import { a as postTxScan, t as depsFromEnv } from "./__handlers-BWNGU2uu.js";
 // api/tx-scan.ts
 var deps = depsFromEnv();
 function POST(req) {
