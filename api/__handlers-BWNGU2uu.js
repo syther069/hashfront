@@ -1564,18 +1564,6 @@ async function getApprovals(req, deps) {
 		return unavailable(err);
 	}
 }
-/** GET /api/suspects: addresses found only in the served site, while it differs from the live release. */
-async function getSuspects(_req, load) {
-	if (!load) return json(503, { error: "site monitoring is not configured on this host" });
-	try {
-		return json(200, {
-			...await load(),
-			source: "approved release on X Layer vs the live site"
-		}, "public, s-maxage=30, stale-while-revalidate=60");
-	} catch {
-		return json(503, { error: "could not compare the site with the live release right now" });
-	}
-}
 /** GET /api/status: the signed-in-chain verdict on the protected site, for the Guard extension. CORS is open: it is public, read-only data. */
 async function getStatus(_req, load) {
 	const open = { "access-control-allow-origin": "*" };
@@ -1648,4 +1636,4 @@ async function getPrice(_req, deps) {
 		return unavailable(err);
 	}
 }
-export { formatAbiParameters as $, toBytes as A, hexToBigInt as B, aoutput as C, createView as D, createHasher as E, bytesToHex as F, InvalidBytesBooleanError as G, hexToNumber as H, numberToHex as I, InvalidBytesLengthError as J, pad as K, stringToHex as L, stringToBytes as M, toBytes$1 as N, randomBytes as O, boolToHex as P, formatAbiItem as Q, toHex as R, anumber as S, concatBytes as T, trim as U, hexToBool as V, IntegerOutOfRangeError as W, size as X, BaseError as Y, isHex as Z, keccak_256 as _, getSuspects as a, aexists as b, slice as c, checksumAddress as d, bytesRegex as et, getAddress as f, keccak256 as g, LruMap as h, getStatus as i, hexToBytes as j, rotr as k, sliceBytes as l, toSignatureHash as m, getApprovals as n, integerRegex as nt, postTxScan as o, InvalidAddressError as p, padHex as q, getPrice as r, isTupleRegex as rt, toFunctionSelector as s, depsFromEnv as t, execTyped as tt, isAddress as u, Hash as v, clean as w, ahash as x, abytes as y, assertSize as z };
+export { bytesRegex as $, hexToBytes as A, hexToBool as B, clean as C, randomBytes as D, createView as E, numberToHex as F, pad as G, trim as H, stringToHex as I, BaseError as J, padHex as K, toHex as L, toBytes$1 as M, boolToHex as N, rotr as O, bytesToHex as P, formatAbiParameters as Q, assertSize as R, aoutput as S, createHasher as T, IntegerOutOfRangeError as U, hexToNumber as V, InvalidBytesBooleanError as W, isHex as X, size as Y, formatAbiItem as Z, Hash as _, postTxScan as a, ahash as b, sliceBytes as c, getAddress as d, execTyped as et, InvalidAddressError as f, keccak_256 as g, keccak256 as h, getStatus as i, stringToBytes as j, toBytes as k, isAddress as l, LruMap as m, getApprovals as n, isTupleRegex as nt, toFunctionSelector as o, toSignatureHash as p, InvalidBytesLengthError as q, getPrice as r, slice as s, depsFromEnv as t, integerRegex as tt, checksumAddress as u, abytes as v, concatBytes as w, anumber as x, aexists as y, hexToBigInt as z };

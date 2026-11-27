@@ -136,7 +136,7 @@ flowchart LR
     Alert --> Status["status page + badge: ALERT"]
   end
   subgraph Users["Users"]
-    API["/api/status, /api/suspects<br/>(Vercel Functions, compare site with chain)"]
+    API["/api/status, /api/approvals<br/>(Vercel Functions, compare site with chain)"]
     DeWEB -.->|"approved bytes"| API
     API --> Guard["Hashfront Guard extension:<br/>blocks signatures on the hijacked page"]
     API --> Status

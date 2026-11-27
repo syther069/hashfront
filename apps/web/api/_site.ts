@@ -1,5 +1,5 @@
 // Server-side view of the protected website: what the live release lists, what the host serves right now, and, when
-// they differ, the addresses only the served files contain. Used by /api/suspects and /api/approvals (and by the
+// they differ, the addresses only the served files contain. Used by /api/status and /api/approvals (and by the
 // status endpoint later). The site and gate come from env, never from the request, so none of this is an open proxy.
 import { createPublicClient, http, type Address, type PublicClient } from "viem";
 import { releaseGateAbi } from "@hashfront/cli/abi";

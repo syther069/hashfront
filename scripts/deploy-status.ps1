@@ -44,7 +44,7 @@ try { vercel deploy --prod --yes } finally { Pop-Location }
 
 $page = $cfg.statusPage.TrimEnd('/')
 Start-Sleep -Seconds 25
-foreach ($path in '/', '/api/status', '/api/suspects', '/api/price') {
+foreach ($path in '/', '/api/status', '/api/price') {
     $code = try { (Invoke-WebRequest "$page$path" -UseBasicParsing -TimeoutSec 30).StatusCode } catch { $_.Exception.Response.StatusCode.value__ }
     Write-Host ("{0,-14} HTTP {1}" -f $path, $code)
 }

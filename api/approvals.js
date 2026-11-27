@@ -1,5 +1,5 @@
-import { n as getApprovals, t as depsFromEnv } from "./__handlers-DV0s4ewm.js";
-import { n as suspectsLoaderFromEnv, r as manifestTexts } from "./__site-3lMLs0ZZ.js";
+import { n as getApprovals, t as depsFromEnv } from "./__handlers-BWNGU2uu.js";
+import { n as suspectsLoaderFromEnv, r as manifestTexts } from "./__site-SFRMacWE.js";
 // api/approvals.ts
 var base = depsFromEnv();
 var deps = {

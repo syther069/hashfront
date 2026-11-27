@@ -1,3 +1,5 @@
+> **History, not the current plan.** The current plan is `docs/PLAN-10of10.md`. This file records how the first build went; read it only when a task points to it.
+
 # Hashfront Implementation Plan
 
 **Source spec:** `../HASHFRONT_PLAN.md` (approved).
