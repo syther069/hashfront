@@ -4,12 +4,12 @@
 # from the link, with no error. This script sets them from the config, builds, checks that the gate really is in the
 # bundle, copies the build into the Vercel project folder (keeping its .vercel link), deploys, and probes the live API.
 #
-#   pwsh scripts/deploy-status.ps1                       # deploy to production
-#   pwsh scripts/deploy-status.ps1 -NoDeploy             # build, check and copy only
+#   pwsh scripts/deploy-status.ps1                       # build, check and copy only (production deploys from GitHub on every push to main)
+#   pwsh scripts/deploy-status.ps1 -Deploy               # also deploy to production from this machine: it replaces what GitHub deployed
 #   pwsh scripts/deploy-status.ps1 -Dest ..\deploy\hashfront-status
 param(
     [string]$Dest = (Join-Path $PSScriptRoot '..\..\deploy\hashfront-status'),
-    [switch]$NoDeploy
+    [switch]$Deploy
 )
 $ErrorActionPreference = 'Stop'
 Set-Location (Join-Path $PSScriptRoot '..')
@@ -37,7 +37,7 @@ Get-ChildItem $Dest -Force | Where-Object { $_.Name -ne '.vercel' } | Remove-Ite
 Copy-Item (Join-Path apps/web/dist '*') $Dest -Recurse
 Write-Host "Copied the build to $Dest"
 
-if ($NoDeploy) { Write-Host 'NoDeploy: stopped before deploying.'; exit 0 }
+if (-not $Deploy) { Write-Host 'Built and checked. Not deployed: production deploys from GitHub on push to main (use -Deploy to deploy from here).'; exit 0 }
 
 Push-Location $Dest
 try { vercel deploy --prod --yes } finally { Pop-Location }
