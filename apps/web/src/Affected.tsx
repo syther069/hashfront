@@ -41,13 +41,16 @@ export function Affected({ target, alertOpen }: { target: Target; alertOpen: boo
         A hijacked site usually asks for a token approval to the attacker. This lists every approval your address has on X Layer, from the OKX Onchain OS
         security API, and marks the ones that are not this protocol's contracts. It shows approvals, not losses.
       </p>
+      <label className="field-label" htmlFor="affected-address">
+        Wallet address
+      </label>
       <div className="row">
         <input
+          id="affected-address"
           className="addr"
           placeholder={connected ?? "0x… your wallet address"}
           value={typed}
           onChange={(e) => setTyped(e.target.value.trim())}
-          aria-label="wallet address"
           data-testid="affected-address"
         />
         {!connected && <ConnectButton />}

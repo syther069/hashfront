@@ -820,3 +820,54 @@ ul.plain li:last-child {
     transition: none;
   }
 }
+
+/* readability and polish (design cheat codes): balanced headlines, tabular numbers, one visible label per field, tinted depth */
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+p,
+li {
+  text-wrap: pretty;
+}
+.big,
+.ev-value,
+.facts dd,
+.hero-fresh,
+td,
+.pill {
+  font-variant-numeric: tabular-nums;
+}
+td.num,
+th.num {
+  text-align: right;
+}
+.field-label {
+  display: block;
+  margin: 0 0 var(--s1);
+  color: var(--text);
+  font-size: var(--fs-s);
+}
+.hero {
+  box-shadow: 0 8px 16px color-mix(in srgb, var(--accent) 6%, transparent);
+}
+.hero[data-state="alert"] {
+  box-shadow: 0 8px 16px color-mix(in srgb, var(--bad) 12%, transparent);
+}
+.wallet-list {
+  box-shadow: 0 8px 16px color-mix(in srgb, var(--base) 80%, transparent);
+}
+.zone-title {
+  margin-top: var(--s4);
+}
+.zone:first-of-type .zone-title {
+  margin-top: 0;
+}
+.ev-block .facts {
+  grid-template-columns: max-content minmax(0, 1fr);
+}
+.btn,
+.row > button {
+  padding: 0 var(--s3);
+}
