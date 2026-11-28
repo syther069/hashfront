@@ -45,6 +45,8 @@ The official criteria and the FAQ say that judges score "the potential to expand
   - the README honestly says how many were asked and how many said yes
 
 **N3: TapeOut at the centre, not on the side** (4 h; replaces F13)
+- **Status (Nov 28):** done on `feat/n3-tapeout-centre`. Circuit #4 is public logic anyone can `eval` (fork test, live `cast call`); a second gate on #4 ships releases but its alerts deliver 0 and migration reverts (fork test), and the live gate **cannot** swap policy (`policyId` immutable); both are written as known limits with a v2 design in `circuits/README.md`. TapeSend: `--tapesend-to` already took endpoint ids; added `run-watcher.ps1 -TapeSendTo`, the status page box (container → endpoint id) and a fork test delivering one alert to our inbox and a second project's (about 103k extra gas per inbox). **Not done:** a live send to a real user inbox (part of N1, needs an endpoint id from a real team and a "go").
+- **Known flake (Nov 28):** `npm run test:e2e -w packages/watcher` failed in 3 of 5 local runs, each time in a different test, once with a Node crash (exit 0xC0000409); two full runs passed. Not caused by F1/F5 (no watcher code changed). Look into it in F16.
 - **A reusable circuit:** turn the release policy into a **public, reusable "release policy" circuit**, so another TapeOut project can point its own gate at it. Document the circuit's processor, ID, inputs and truth table in `circuits/README.md` as "use this circuit in your project".
   - First read `contracts/src/ReleaseGate.sol` (constructor: `processor_`, `policyId_`) and `circuits/`.
   - If a new gate can reuse circuit #4 without deploying a new one, say so and show it in a fork test. If it can't, explain why, and how a team would tape out their own copy.

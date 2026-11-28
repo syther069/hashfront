@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { badgeSnippet } from "@hashfront/cli/snippets";
+import { badgeSnippet, tapesendEndpoint } from "@hashfront/cli/snippets";
 import { usePublicClient } from "wagmi";
 import type { PublicClient } from "viem";
 import { dewebUrl, linkFor, publicClientFor, type Target } from "./config.ts";
@@ -400,7 +400,42 @@ function Technical({ s, target, table }: { s: Snapshot; target: Target; table: T
       {info.migrated && <p className="bad">This gate was migrated and no longer accepts releases.</p>}
       <Policy s={s} table={table} />
       <Badge target={target} />
+      <TapeSendInbox container={info.container} chainId={target.chain.id} />
     </>
+  );
+}
+
+/** How a TapeOut project with its own DeWEB container gets this site's alerts in its TapeSend inbox. */
+function TapeSendInbox({ container, chainId }: { container: string; chainId: number }) {
+  const [addr, setAddr] = useState("");
+  const own = tapesendEndpoint(container, chainId);
+  const theirs = addr.trim() ? tapesendEndpoint(addr, chainId) : undefined;
+  return (
+    <section className="subsection" data-testid="tapesend-inbox">
+      <h3>Get alerts on TapeSend</h3>
+      <p className="muted">
+        Every alert is sent on chain from this site's own DeWEB container, as fixed text with no links. It lands in this site's inbox
+        {own ? (
+          <>
+            {" "}
+            (<CopyField value={own} shown={`${own.slice(0, 10)}…${own.slice(-6)}`} label="this site's endpoint id" />)
+          </>
+        ) : null}{" "}
+        and in up to 7 more inboxes the team adds to its watcher. To read TapeSend you need your own opened DeWEB container, which a TapeOut project with a DeWEB site
+        already has.
+      </p>
+      <label className="field-label" htmlFor="tapesend-container">
+        Your container address
+      </label>
+      <input id="tapesend-container" className="addr" value={addr} onChange={(e) => setAddr(e.target.value)} placeholder="0x… your DeWEB container" spellCheck={false} autoComplete="off" data-testid="tapesend-container" />
+      {addr.trim() && !theirs && <p className="error small">That is not a 0x address of 40 hex characters.</p>}
+      {theirs && (
+        <p className="small">
+          Your endpoint id: <CopyField value={theirs} label="your endpoint id" />. Send it to this site's team. They add it to the watcher
+          (<code>--tapesend-to self,{theirs.slice(0, 10)}…</code>), which costs them about 100k extra gas per alert.
+        </p>
+      )}
+    </section>
   );
 }
 
