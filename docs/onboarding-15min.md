@@ -46,6 +46,7 @@ Fees are read live from the chain when you run `init`, so run the simulation you
 | 1 reporter address with a little OKB | the watcher's key; it can only send the fixed-text alerts |
 | A deployer Foundry keystore with about 0.083 OKB | pays the fees above (`cast wallet import deployer --interactive`) |
 | Optional: a Telegram bot token and chat id | for alerts in your group |
+| Optional: a free CertSpotter API key (https://sslmate.com/certspotter/api/) | makes the Certificate Transparency signal usable; anonymous use is rate limited. Set `CERTSPOTTER_API_KEY` (`run-watcher.ps1` asks for it at a hidden prompt) |
 
 Keep keys in Foundry keystores. The CLI never takes a private key on the command line.
 
@@ -94,7 +95,7 @@ It prints one JSON line per check. `MATCH` means your domain serves the approved
 ## Limits to know before you start
 
 - The watcher checks from one network. It catches a changed site, not a hijacker who serves the real page to that one network only.
-- Certificate Transparency is best effort: in our 8 h run the public CT APIs were unavailable in 72 % of checks.
+- Certificate Transparency is best effort: in our 8 h run without an API key, the public CT APIs were unavailable in 72 % of checks.
 - The Hashfront Guard browser extension currently protects only the Hashfront demo site. A list of protected sites is planned (F10).
 - The contracts are not audited.
 

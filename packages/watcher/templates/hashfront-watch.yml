@@ -6,6 +6,7 @@
 #   secret   HASHFRONT_REPORTER_KEY   the reporter key (it can only send fixed-text alerts; maintainers can rotate it)
 #   secret   TELEGRAM_BOT_TOKEN        optional
 #   secrets  OKX_API_KEY, OKX_SECRET_KEY, OKX_API_PASSPHRASE   optional (OKX developer portal)
+#   secret   CERTSPOTTER_API_KEY       optional; without it CertSpotter rate limits anonymous use and CT falls back to crt.sh
 #   variable HASHFRONT_GATE, HASHFRONT_SITE, HASHFRONT_NAME, TELEGRAM_CHAT (optional)
 # Release manifests live in this repo under manifests/ (one per release; the watcher trusts one only if it
 # reproduces the onchain root).
@@ -55,6 +56,7 @@ jobs:
           OKX_API_KEY: ${{ secrets.OKX_API_KEY }}
           OKX_SECRET_KEY: ${{ secrets.OKX_SECRET_KEY }}
           OKX_API_PASSPHRASE: ${{ secrets.OKX_API_PASSPHRASE }}
+          CERTSPOTTER_API_KEY: ${{ secrets.CERTSPOTTER_API_KEY }}
           GATE: ${{ vars.HASHFRONT_GATE }}
           SITE: ${{ vars.HASHFRONT_SITE }}
           NAME: ${{ vars.HASHFRONT_NAME }}

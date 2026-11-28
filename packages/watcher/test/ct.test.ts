@@ -169,3 +169,72 @@ test("issuerName: organisation, else common name, else the text", () => {
   assert.equal(issuerName("CN=Only A Name"), "Only A Name");
   assert.equal(issuerName("weird"), "weird");
 });
+
+const KEY = "sk_test_never_printed_123";
+
+test("with an API key, CertSpotter gets it as a bearer token; crt.sh never sees it", async () => {
+  const seen: { host: string; auth: string | undefined }[] = [];
+  const crt = await fixture("crtsh-example-org.json");
+  const f = await fetchIssuances("example.org", undefined, async (url, init) => {
+    seen.push({ host: new URL(url).hostname, auth: init.headers.authorization });
+    return url.includes("certspotter") ? { ok: false, status: 500, json: async () => ({}) } : reply(crt);
+  }, { apiKey: ` ${KEY} ` });
+  assert.equal(f.source, "crtsh");
+  assert.deepEqual(seen, [
+    { host: "api.certspotter.com", auth: `Bearer ${KEY}` },
+    { host: "crt.sh", auth: undefined },
+  ]);
+  // without a key no authorization header is sent at all
+  const anon: (string | undefined)[] = [];
+  await fetchIssuances("example.org", undefined, async (_u, init) => (anon.push(init.headers.authorization), reply([])));
+  assert.deepEqual(anon, [undefined]);
+});
+
+test("the key never appears in the error, the JSON report or the saved baseline", async () => {
+  const echo: FetchLike = async (url) => {
+    // a hostile or buggy API that echoes the key back in its error must not leak it either
+    throw new Error(`refused ${url.includes("certspotter") ? KEY : "crt"}`);
+  };
+  const r = await checkSignals(SITE, true, cfg(echo, { ctApiKey: KEY }));
+  assert.match(r.ct?.error ?? "", /certificate transparency unavailable/);
+  assert.ok(!JSON.stringify(r).includes(KEY), "report must not contain the key");
+  assert.ok(!(await readFile(path.join(dir, "baseline.json"), "utf8")).includes(KEY), "baseline must not contain the key");
+});
+
+test("CertSpotter 403: crt.sh answers now, and CertSpotter is skipped for 30 min, then asked again", async () => {
+  let t = Date.parse("2026-11-28T00:00:00Z");
+  const crt = await fixture("crtsh-example-org.json");
+  const calls: string[] = [];
+  const f: FetchLike = async (url) => {
+    calls.push(new URL(url).hostname);
+    return url.includes("certspotter") ? { ok: false, status: 403, json: async () => ({}) } : reply(crt);
+  };
+  const c = cfg(f, { deps: { resolver, tls, ctFetch: f, now: () => t } });
+  await checkSignals(SITE, true, c);
+  assert.deepEqual(calls, ["api.certspotter.com", "crt.sh"]);
+  calls.length = 0;
+  t += 29 * 60_000;
+  await checkSignals(SITE, true, c);
+  assert.deepEqual(calls, ["crt.sh"], "CertSpotter is paused");
+  calls.length = 0;
+  t += 2 * 60_000;
+  await checkSignals(SITE, true, c);
+  assert.deepEqual(calls[0], "api.certspotter.com", "asked again after 30 min");
+});
+
+test("CertSpotter 429 and crt.sh down: no CT lookup at all for 30 min (not the usual 5)", async () => {
+  let t = Date.parse("2026-11-28T00:00:00Z");
+  let calls = 0;
+  const f: FetchLike = async (url) => (calls++, { ok: false, status: url.includes("certspotter") ? 429 : 502, json: async () => ({}) });
+  const c = cfg(f, { deps: { resolver, tls, ctFetch: f, now: () => t } });
+  const first = await checkSignals(SITE, true, c);
+  assert.match(first.ct?.error ?? "", /HTTP 429/);
+  assert.equal(calls, 2);
+  t += 10 * 60_000;
+  const second = await checkSignals(SITE, true, c);
+  assert.equal(calls, 2, "nothing asked inside the pause");
+  assert.equal(second.ct?.level, "info");
+  t += 21 * 60_000;
+  await checkSignals(SITE, true, c);
+  assert.equal(calls, 4, "both asked again after 30 min");
+});

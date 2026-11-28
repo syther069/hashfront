@@ -1,7 +1,7 @@
 // Certificate Transparency signal. A hijacker needs a TLS certificate for the stolen domain before the drainer can be
 // served over https, and CT logs show that certificate within minutes, often before the site itself changes.
-// Source: CertSpotter (no key needed at low volume), with crt.sh as the fallback. Both are public; nothing is sent
-// except the domain we already watch.
+// Source: CertSpotter (an API key from CERTSPOTTER_API_KEY is sent when set; anonymous use is rate limited), with
+// crt.sh as the fallback. Nothing is sent except the domain we already watch (and the key, to CertSpotter only).
 import type { Severity } from "./dns.ts";
 import { errorText } from "./util.ts";
 
@@ -21,6 +21,24 @@ export interface CtFetch {
   issuances: Issuance[];
   /** the page limit was hit: the history is incomplete, so it cannot be recorded as a baseline */
   truncated: boolean;
+  /** CertSpotter refused with HTTP 403 or 429 (rate limit, or a bad key) and crt.sh answered instead */
+  certspotterLimited?: boolean;
+}
+
+export interface CtOptions {
+  /** CertSpotter API key, sent as a bearer token to api.certspotter.com only; never logged or put in an error */
+  apiKey?: string | undefined;
+  /** go straight to crt.sh (CertSpotter is paused after a rate limit) */
+  skipCertSpotter?: boolean;
+}
+
+/** Thrown when both sources fail; `certspotterLimited` says CertSpotter refused with HTTP 403 or 429. */
+export class CtUnavailable extends Error {
+  readonly certspotterLimited: boolean;
+  constructor(message: string, certspotterLimited: boolean) {
+    super(message);
+    this.certspotterLimited = certspotterLimited;
+  }
 }
 
 export type FetchLike = (url: string, init: { signal: AbortSignal; headers: Record<string, string> }) => Promise<{ ok: boolean; status: number; json(): Promise<unknown> }>;
@@ -84,19 +102,28 @@ function fromCrtSh(raw: unknown): Issuance[] {
   });
 }
 
-async function getJson(fetchFn: FetchLike, url: string): Promise<unknown> {
-  const res = await fetchFn(url, { signal: AbortSignal.timeout(TIMEOUT_MS), headers: { accept: "application/json", "user-agent": "hashfront-watcher/0.1" } });
-  if (!res.ok) throw new Error(`${new URL(url).hostname} answered HTTP ${res.status}`);
+/** Rate limited (or a refused key): worth pausing that source instead of asking again soon. */
+const LIMITED = new Set([403, 429]);
+
+async function getJson(fetchFn: FetchLike, url: string, extra: Record<string, string> = {}): Promise<unknown> {
+  const res = await fetchFn(url, { signal: AbortSignal.timeout(TIMEOUT_MS), headers: { accept: "application/json", "user-agent": "hashfront-watcher/0.1", ...extra } });
+  // only the host and the status go into the message: never the URL's query or a header
+  if (!res.ok) throw Object.assign(new Error(`${new URL(url).hostname} answered HTTP ${res.status}`), { status: res.status });
   return res.json();
 }
+
+const limited = (err: unknown) => LIMITED.has(Number((err as { status?: unknown } | null)?.status));
 
 /**
  * Issuances for `domain` (a registrable domain; subdomains are included), newer than `after` when given.
  * CertSpotter pages are ascending by id, so an `after` cursor returns only what is new.
  * Throws when both sources fail; the caller treats that as "unknown", never as a finding.
  */
-export async function fetchIssuances(domain: string, after: { source: CtSource; id: string } | undefined, fetchFn: FetchLike = fetch as FetchLike): Promise<CtFetch> {
+export async function fetchIssuances(domain: string, after: { source: CtSource; id: string } | undefined, fetchFn: FetchLike = fetch as FetchLike, opts: CtOptions = {}): Promise<CtFetch> {
+  const key = opts.apiKey?.trim();
+  const auth: Record<string, string> = key ? { authorization: `Bearer ${key}` } : {};
   try {
+    if (opts.skipCertSpotter) throw new Error("CertSpotter paused after a rate limit");
     const out: Issuance[] = [];
     let cursor = after?.source === "certspotter" ? after.id : undefined;
     for (let page = 0; page < MAX_PAGES; page++) {
@@ -106,20 +133,22 @@ export async function fetchIssuances(domain: string, after: { source: CtSource; 
       url.searchParams.append("expand", "dns_names");
       url.searchParams.append("expand", "issuer");
       if (cursor) url.searchParams.set("after", cursor);
-      const batch = fromCertSpotter(await getJson(fetchFn, url.href));
+      const batch = fromCertSpotter(await getJson(fetchFn, url.href, auth));
       out.push(...batch);
       if (!batch.length) return { source: "certspotter", issuances: out, truncated: false };
       cursor = batch[batch.length - 1]!.id;
     }
     return { source: "certspotter", issuances: out, truncated: true };
   } catch (primary) {
+    const certspotterLimited = limited(primary);
     try {
       const url = new URL("https://crt.sh/");
       url.searchParams.set("q", domain);
       url.searchParams.set("output", "json");
-      return { source: "crtsh", issuances: fromCrtSh(await getJson(fetchFn, url.href)), truncated: false };
+      return { source: "crtsh", issuances: fromCrtSh(await getJson(fetchFn, url.href)), truncated: false, ...(certspotterLimited ? { certspotterLimited } : {}) };
     } catch (fallback) {
-      throw new Error(`certificate transparency unavailable: CertSpotter: ${errorText(primary)}; crt.sh: ${errorText(fallback)}`);
+      const text = (e: unknown) => (key ? errorText(e).split(key).join("<key>") : errorText(e));
+      throw new CtUnavailable(`certificate transparency unavailable: CertSpotter: ${text(primary)}; crt.sh: ${text(fallback)}`, certspotterLimited);
     }
   }
 }

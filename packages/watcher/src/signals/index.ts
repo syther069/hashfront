@@ -6,7 +6,7 @@ import { readFile, rename, writeFile } from "node:fs/promises";
 import { diffObservation, observeDns, DEFAULT_DNS_SERVERS, type DnsChange, type DnsObservation, type DnsRecords, type MakeResolver, type Severity } from "./dns.ts";
 import { judgeCert, tlsProbe, type CertBaseline, type CertFinding, type CertInfo, type TlsProbe } from "./cert.ts";
 import { dappScan, defaultScanner, type RunScan, type ScanResult } from "./onchainos.ts";
-import { advance, baselineFrom, fetchIssuances, judgeCt, newIssuances, type CtBaseline, type CtFetch, type CtFinding, type FetchLike } from "./ct.ts";
+import { advance, baselineFrom, CtUnavailable, fetchIssuances, judgeCt, newIssuances, type CtBaseline, type CtFetch, type CtFinding, type FetchLike } from "./ct.ts";
 import { dnssecOff, judgeRegistry, observeRegistry, registryBaselineFrom, type RegistryBaseline, type RegistryFinding, type RegistryObservation } from "./registry.ts";
 import { errorText } from "./util.ts";
 
@@ -34,6 +34,10 @@ export interface SignalConfig {
   ct?: boolean;
   /** CT is a public API; ask at most this often (default 10 min) */
   ctIntervalMs?: number;
+  /** CertSpotter API key (CERTSPOTTER_API_KEY); without one, anonymous use is rate limited */
+  ctApiKey?: string | undefined;
+  /** after CertSpotter refuses with HTTP 403 or 429, skip it (crt.sh only) for this long (default 30 min) */
+  ctLimitPauseMs?: number;
   /** registry data (RDAP) and DNSSEC (DoH), default on; asked at most this often (default 10 min) */
   registry?: boolean;
   registryIntervalMs?: number;
@@ -69,7 +73,9 @@ interface CtOutcome {
 const scanCache = new Map<string, { at: number; result: ScanResult }>();
 const registryCache = new Map<string, { at: number; obs: RegistryObservation }>();
 const ctCache = new Map<string, { at: number; fetch: CtFetch }>();
-const ctFailures = new Map<string, { at: number; error: string }>();
+const ctFailures = new Map<string, { until: number; error: string }>();
+let certspotterPausedUntil = 0;
+const CT_LIMIT_PAUSE_MS = 30 * 60_000;
 const registryFailures = new Map<string, { at: number; obs: RegistryObservation }>();
 const COOLDOWN_MS = 300_000;
 
@@ -285,13 +291,18 @@ async function cachedCt(domain: string, base: CtBaseline | undefined, cfg: Signa
   const hit = ctCache.get(key);
   if (hit && now() - hit.at < (cfg.ctIntervalMs ?? 600_000)) return hit.fetch;
   const failed = ctFailures.get(key);
-  if (failed && now() - failed.at < (cfg.failureCooldownMs ?? COOLDOWN_MS)) throw new Error(failed.error);
+  if (failed && now() < failed.until) throw new Error(failed.error);
+  const pause = cfg.ctLimitPauseMs ?? CT_LIMIT_PAUSE_MS;
   try {
-    const fetch = await fetchIssuances(domain, base && { source: base.source, id: base.lastId }, fetchFn);
+    const fetch = await fetchIssuances(domain, base && { source: base.source, id: base.lastId }, fetchFn, { apiKey: cfg.ctApiKey, skipCertSpotter: now() < certspotterPausedUntil });
+    if (fetch.certspotterLimited) certspotterPausedUntil = now() + pause;
     ctCache.set(key, { at: now(), fetch });
     return fetch;
   } catch (err) {
-    ctFailures.set(key, { at: now(), error: errorText(err) });
+    // rate limited and the fallback down too: wait the long pause before asking either again
+    const isLimited = err instanceof CtUnavailable && err.certspotterLimited;
+    if (isLimited) certspotterPausedUntil = now() + pause;
+    ctFailures.set(key, { until: now() + (isLimited ? pause : (cfg.failureCooldownMs ?? COOLDOWN_MS)), error: errorText(err) });
     throw err;
   }
 }
@@ -303,4 +314,5 @@ export function clearScanCache(): void {
   registryCache.clear();
   ctFailures.clear();
   registryFailures.clear();
+  certspotterPausedUntil = 0;
 }

@@ -29,6 +29,15 @@ if ($TelegramChat) {
     $secure = Read-Host 'Telegram bot token (hidden)' -AsSecureString
     $env:TELEGRAM_BOT_TOKEN = [System.Net.NetworkCredential]::new('', $secure).Password.Trim()
 }
+# Certificate Transparency: CertSpotter rate limits anonymous use (HTTP 403 in our 8 h run), so a free API key makes the
+# CT signal usable. Optional; Enter skips it. Like the bot token it lives only in this process's environment.
+$setCtKey = $false
+if (-not $env:CERTSPOTTER_API_KEY) {
+    $ctSecure = Read-Host 'CertSpotter API key (hidden, Enter to skip)' -AsSecureString
+    $ctKey = [System.Net.NetworkCredential]::new('', $ctSecure).Password.Trim()
+    if ($ctKey) { $env:CERTSPOTTER_API_KEY = $ctKey; $setCtKey = $true }
+    Remove-Variable ctKey, ctSecure
+}
 try {
     $watchArgs = @(
         'packages/watcher/src/main.ts',
@@ -54,4 +63,5 @@ try {
     }
 } finally {
     Remove-Item Env:TELEGRAM_BOT_TOKEN -ErrorAction SilentlyContinue
+    if ($setCtKey) { Remove-Item Env:CERTSPOTTER_API_KEY -ErrorAction SilentlyContinue }
 }

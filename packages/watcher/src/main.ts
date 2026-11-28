@@ -106,6 +106,7 @@ function parseSignals(list: string, opts: { state?: string | undefined; rebaseli
     cert: names.includes("cert"),
     scan: names.includes("scan"),
     ct: names.includes("ct"),
+    ...(process.env.CERTSPOTTER_API_KEY?.trim() ? { ctApiKey: process.env.CERTSPOTTER_API_KEY.trim() } : {}),
     registry: names.includes("registry"),
     rebaseline: opts.rebaseline,
     ...(opts.state ? { statePath: opts.state } : {}),

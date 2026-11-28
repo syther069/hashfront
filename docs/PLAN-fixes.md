@@ -314,7 +314,7 @@ The official criteria and the FAQ say that judges score "the potential to expand
 | F3 | Hygiene, merge author name | Claude + user | scratch file removed (PR `chore/f3-hygiene`); merge-author name: user to choose |
 | F4 | Guard DOM check (anti-cloaking) | Claude | todo |
 | F5 | Alert can't lock out users | Claude | done (`fix/f5-alert-not-lockout`): feed `warn` + `alertOpen`, Guard banner, status page amber; Guard e2e uses a mocked feed, the server rule is unit-tested |
-| F6 | CT key or honest wording | Claude + user | todo |
+| F6 | CT key or honest wording | Claude + user | code done (`fix/f6-ct-key`): `CERTSPOTTER_API_KEY` as bearer (CertSpotter only, redacted from errors), 30 min CertSpotter pause after 403/429, hidden prompt in `run-watcher.ps1`, Actions secret; **still to do:** the user's key, then a 2 h+ run and a new `docs/metrics.md` with the CT availability figure |
 | F7 | Users, one adopter, go-to-market | user + Claude | todo |
 | F8 | Real maintainers ⛓ | user + Claude | todo |
 | F9 | Domain decision ⛓ | user | decide by Nov 30 |
