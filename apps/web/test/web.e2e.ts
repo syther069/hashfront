@@ -148,6 +148,13 @@ test("status page, then a maintainer approves in the browser and the status upda
   await openFold(page, "technical");
   assert.equal(await page.locator('[data-testid="truth-table"] tbody tr').count(), 32);
   assert.equal(await page.getByTestId("policy-mismatch").count(), 0, "browser evaluation must agree with wouldAllow()");
+  // "Get alerts on TapeSend": a project's container address becomes its endpoint id, computed in the browser
+  const inbox = page.getByTestId("tapesend-inbox");
+  await page.getByTestId("tapesend-container").fill("0x5D96417d287f6F10979b63b80504926DE4CE92bA");
+  // this page runs on the local chain (31337 = 0x7a69); on X Layer the same container gives ...00c4 5d96... (unit test)
+  assert.match(await inbox.innerText(), /0x000000000000000000007a695d96417d287f6f10979b63b80504926de4ce92ba/);
+  await page.getByTestId("tapesend-container").fill("0x123");
+  assert.match(await inbox.innerText(), /not a 0x address/);
   // the badge preview renders inside its iframe (catches a sandbox/CORS mistake that only shows when framed)
   await page.frameLocator(".badge-preview").locator('#badge[data-state="ok"]').waitFor({ timeout: 15_000 });
   await shot(page, "status");

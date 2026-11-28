@@ -45,10 +45,26 @@ Users can't see the difference, and teams usually find out from their users.
 
 ## Why a TapeOut circuit, not just a Safe
 
-- The release policy is **public logic anyone can evaluate**: the status page reads the netlist and checks all 32 rows in the browser against the gate.
-- It is **composable**: freeze, timelock and the 3-of-3 hotfix path are inputs to one small circuit, not scattered contract flags.
-- It **lives with the site container on DeWEB**, so whoever may change the verified copy is the same thing the circuit decides.
-- A multisig answers "who signed". The circuit answers "is this release allowed under the policy", and everyone can check that without trusting us.
+- **The policy is inspectable data, not code you have to trust.** The 22-gate netlist is stored on chain, and the status page reads it and evaluates all 32 rows in your browser against the gate. Anyone can run `eval(4, bits)` from any address ([`circuits/README.md`](circuits/README.md), fork-tested in `contracts/test/fork/PolicyReuse.t.sol`).
+- **The policy is reusable.** Any contract can evaluate circuit #4 for free. `hashfront init` tapes out a byte-identical copy for another project and checks all 32 inputs before it spends anything else.
+- **One small circuit decides it.** Freeze, timelock and the 3-of-3 hotfix path are 5 inputs to one function, instead of flags spread across a contract.
+- **It is the same token as the site.** The circuit NFT the gate holds also owns the DeWEB container, so the policy that allows a release is the only thing that can change the verified copy.
+- **What it is not:** the same rule could be written in Solidity. The circuit adds no power Solidity lacks. What it adds is that the rule is public, stored data that the gate, the status page and other projects all run as is. The deployed gate can't swap its policy (`policyId` is immutable); the v2 design that separates the two is in [`circuits/README.md`](circuits/README.md).
+
+## Where TapeOut is used
+
+| Feature | TapeOut piece | Contract / ID (X Layer) | What breaks without it |
+|---|---|---|---|
+| A release goes live only under the policy | Policy circuit (TAP-02 netlist), evaluated by the processor | circuit #4 on processor #409 `0x39E4…84D0` | Anyone with the deploy key could ship a release; the rule would not be public |
+| The approved release, byte for byte | DeWEB SiteRegistry (TAP-10), written only by the gate | container `0x5D96…92bA` in registry `0xd6EF…ADB6` | The watcher has nothing trustworthy to compare with |
+| The verified copy users open during a hijack | DeWEB gateway, canonical name | `4.2.409.tape` → https://4-2-409.tapekit.org/ | No safe place to send users |
+| The onchain alert and all-clear | TapeSend (TAP-10 hub), sent as the site's own container with fixed text | hub `0xe61A…25ee` | Only Telegram, which a hijacker of the team's accounts could also silence |
+| Alerts in another project's inbox | TapeSend endpoint ids; up to 8 inboxes per alert, about 100k extra gas each (fork-measured) | `--tapesend-to self,<endpoint id>`; the status page computes the id from a container address | Other TapeOut projects would have to poll our status page |
+| Who may change the site | The circuit NFT (one token: policy + container + TapeSend identity) | held by ReleaseGate `0xAF96…80F6` | The site owner key could bypass the gate |
+
+Not TapeOut, but X Layer: the Builder Code `15ld85k6825od6yr` (ERC-8021) on our transactions, and the OKX Onchain OS APIs (see "Built on OKX Onchain OS").
+
+TapeSend is an onchain record delivered to subscribed TapeSend identities. It is not a push to every user: reading an inbox needs your own DeWEB container.
 
 ## Honest limitations
 
@@ -207,8 +223,8 @@ hashfront init --site https://app.example.org --maintainers 0xM1,0xM2,0xM3 \
 
 | Suite | Count | Covers |
 |---|---|---|
-| `forge test` | 57 (50 without the fork tests) | gate lifecycle, policy, fuzzing, manifest compatibility with the CLI, alerts, plus X Layer fork tests (contract holder on the real SiteRegistry, real TapeSend hub) |
-| unit (`npm test`) | 232 | circuit truth table, Merkle and manifest, preflight, keystore, init input, template guards; watcher compare, CDN and adversarial cases, DNS, certificate, CT, registry and scan signals, suspects, incident state machine, metrics report; OKX client and latency ring; web handlers and revoke logic; Guard request filter and verdict logic |
+| `forge test` | 61 (50 without the fork tests) | gate lifecycle, policy, fuzzing, manifest compatibility with the CLI, alerts, plus X Layer fork tests (contract holder on the real SiteRegistry, real TapeSend hub, the live circuit #4 evaluated by an unrelated address, one alert delivered to a second project's inbox) |
+| unit (`npm test`) | 234 | circuit truth table, Merkle and manifest, preflight, keystore, init input, template guards; watcher compare, CDN and adversarial cases, DNS, certificate, CT, registry and scan signals, suspects, incident state machine, metrics report; OKX client and latency ring; web handlers and revoke logic; Guard request filter and verdict logic |
 | end-to-end | CLI suites, watcher 9, web 15, Guard 9 (web and Guard also run in CI) | CLI on anvil and on a fork (`init`, Action sequence, demo release), watcher MATCH→MISMATCH, one alert per incident and the attacker address from a hijack build, Playwright on the status, approve and badge pages including suspects and revoke-all against a real anvil allowance, and the real extension loaded in Edge against the good and hijack builds |
 
 ## Security model and limits

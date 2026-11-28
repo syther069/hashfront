@@ -13,3 +13,12 @@ export function badgeSnippet(badgeUrl: string): string {
 export function dewebUrl(policyId: bigint | number): string {
   return `https://${policyId}-2-409.tapekit.org/`;
 }
+
+/**
+ * TAP-10 endpoint id of a DeWEB container: uint32(0) | uint64(chainId) | address, as the TapeSend hub's endpointOf
+ * returns it (checked against the live hub in contracts/test/fork/PolicyReuse.t.sol). Undefined for a bad address.
+ */
+export function tapesendEndpoint(container: string, chainId = 196): `0x${string}` | undefined {
+  if (!/^0x[0-9a-fA-F]{40}$/.test(container.trim()) || !Number.isSafeInteger(chainId) || chainId <= 0) return undefined;
+  return `0x${"0".repeat(8)}${chainId.toString(16).padStart(16, "0")}${container.trim().slice(2).toLowerCase()}`;
+}

@@ -4,12 +4,15 @@
 #
 #   pwsh scripts/run-watcher.ps1 -Site https://hashswap-demo.vercel.app/ -TelegramChat 6977270776
 #   add -Log .watcher/watch.jsonl to keep one JSON line per check, for scripts/metrics-report.ts (the lines hold no secrets)
+#   add -TapeSendTo self,0x<endpoint id> to also deliver each onchain alert to subscribed TapeSend inboxes (8 at most;
+#   the status page computes a project's endpoint id from its container address; about 100k extra gas per inbox)
 param(
     [Parameter(Mandatory = $true)][string]$Site,
     [string]$TelegramChat = '',
     [int]$Interval = 30,
     [string]$Reporter = 'hashfront-reporter',
-    [string]$Log = ''
+    [string]$Log = '',
+    [string]$TapeSendTo = 'self'
 )
 $ErrorActionPreference = 'Stop'
 Set-Location (Join-Path $PSScriptRoot '..')
@@ -36,7 +39,7 @@ try {
         '--state', '.watcher/signals.json',
         '--name', $cfg.name,
         '--alert-state', '.watcher/alerts.json',
-        '--tapesend-to', 'self',
+        '--tapesend-to', $TapeSendTo,
         '--alerts-mainnet',
         '--account', $Reporter,
         '--interval', "$Interval"
