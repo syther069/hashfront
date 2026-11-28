@@ -35,6 +35,7 @@ The official criteria and the FAQ say that judges score "the potential to expand
   - write `docs/onboarding-15min.md`: `hashfront init` on their site, the watcher and the badge
   - add `hashfront init --dry-run` output to it, so a team can see the cost first
   - draft a short Telegram post for the user to send
+  - **Status (Nov 28):** Claude part done on `docs/n2-onboarding`: `docs/onboarding-15min.md` (cost from an `init` simulation on a local fork: 0.08196 OKB fees + about 0.0002 OKB gas; `init` already simulates by default, so no `--dry-run` flag was added) and the post in `docs/interviews.md`. Open point for the user: offer to pay a team's 0.082 OKB fees or not. The Guard protects only our demo site until F10.
 - **User:**
   - posts in the hackathon Telegram: "free hijack watch for your DeWEB project; 15 min setup"
   - helps 1–3 teams set it up

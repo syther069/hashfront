@@ -19,6 +19,16 @@ Teams named in the incident reports: Flap, Kintsu, Pickle Finance, Origami Finan
 > Hi [name], sorry about the Name.com incident. I'm building an open tool so small DeFi teams find out about a domain hijack within about a minute and can send users to a verified copy of their app. Would you share, in 15 minutes or async, how you found out, how long it took, and what would have helped? Happy to keep anything you say off the record.
 > One more question: would a browser extension that blocks wallet signatures on your site while it is flagged help your users, or would they never install it?
 
+## Post for the TapeOut hackathon Telegram (N2)
+
+The user posts it; Claude never sends anything. Keep it as is or shorten it.
+
+> Hi all, I built Hashfront for this hackathon: it watches your project's normal domain and alerts on Telegram and on chain (TapeSend) within about a minute if the site stops matching the release your maintainers approved, then points users to a verified DeWEB copy.
+>
+> Free help to set it up for your project: about 15 min on a call. You pay the TapeOut fees for your own gate (about 0.082 OKB once; run the simulation first, it's free). Guide: https://github.com/syther069/hashfront/blob/main/docs/onboarding-15min.md
+>
+> If you try it, I'd like to list your project as protected in our README (only with your OK). Reply here or DM me.
+
 ## Questions (same order every time)
 1. Where is your frontend hosted and is it behind a CDN (Cloudflare, Vercel)? Static build or server-rendered?
 2. Who can deploy the frontend, and how (CI, manual)? How many people have registrar access?
